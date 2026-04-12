@@ -1,0 +1,40 @@
+type Did @entity {
+  id: ID! # SS58 (AccountId32)
+  authenticationKey: String # resolved Sr25519 public key (hex)
+  keyAgreementKeys: String # resolved X25519 public keys (JSON array, hex)
+  depositOwner: String # SS58 address
+  depositAmount: Int
+  blockNumber: Int
+}
+
+type Message @entity {
+  id: ID! # "bucketId-messageId" (e.g. "1-5")
+  bucketId: Int!
+  messageId: Int!
+  reference: String # hex-encoded, IPFS CID when decoded
+  tag: String # hex-encoded, e.g. "didcomm/key-sharing-v1" when decoded
+  description: String # hex-encoded, human-readable when decoded
+  createdAt: Int # block number
+  contentType: String # hex-encoded, e.g. "text/plain;charset=utf-8" when decoded
+  contentHash: String # hex hash of the content
+  ipfsContent: String # fetched content from IPFS (only for text/plain, null for encrypted)
+}
+
+type Property @entity {
+  id: ID!
+  propertyName: String
+  propertyType: String
+  status: String
+  propertyPrice: Int
+  pricePerToken: Int
+  numberOfTokens: Int
+  estimatedRentalIncome: Int
+  numberOfBedrooms: Int
+  numberOfBathrooms: Int
+  area: String
+  street: String
+  townCity: String
+  postCode: String
+  developerAddress: String
+  createdAt: String
+}

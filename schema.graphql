@@ -7,34 +7,100 @@ type Did @entity {
   blockNumber: Int
 }
 
+type Bucket @entity {
+  id: ID! #bucketId as string
+  namespaceId: Int! @index
+  bucketId: Int! @index
+  creator: String # DID of creator
+  name: String # decoded from metadata
+  category: String # decoded from metadata
+  isWritable: Boolean! # false when paused, true when writable
+  encryptionKey: String # current key (hex) when writable
+  createdBlock: Int!
+
+  # virtual back-references — no columns, computed by JOIN at query time
+  contributors: [BucketContributor!] @derivedFrom(field: "bucket")
+  admins: [BucketAdmin!] @derivedFrom(field: "bucket")
+  messages: [Message!] @derivedFrom(field: "bucket")
+}
+
+type BucketContributor @entity {
+  id: ID! # "bucketId-subjectId" — composite key for the N:M pair
+  bucket: Bucket! # FK → bucket_id column + index + FK constraint
+  subjectId: String! @index # DID of the contributor
+  addedBlock: Int!
+}
+
+type BucketAdmin @entity {
+  id: ID! # "bucketId-subjectId" — composite key for the N:M pair
+  bucket: Bucket! # FK → bucket_id column + index + FK constraint
+  subjectId: String! @index # DID of the admin
+  addedBlock: Int!
+}
+
 type Message @entity {
   id: ID! # "bucketId-messageId" (e.g. "1-5")
-  bucketId: Int!
+  bucket: Bucket! # FK
   messageId: Int!
-  reference: String # hex-encoded, IPFS CID when decoded
-  tag: String # hex-encoded, e.g. "didcomm/key-sharing-v1" when decoded
-  description: String # hex-encoded, human-readable when decoded
-  createdAt: Int # block number
-  contentType: String # hex-encoded, e.g. "text/plain;charset=utf-8" when decoded
-  contentHash: String # hex hash of the content
-  ipfsContent: String # fetched content from IPFS (only for text/plain, null for encrypted)
+  contributor: String! # DID of the writer (from event arg)
+  reference: String # decoded IPFS CID ("baf...")
+  tag: String # decoded UTF-8 (e.g. "didcomm/key-sharing-v1")
+  description: String # decoded UTF-8
+  contentType: String # decoded UTF-8 (e.g. "text/plain;charset=utf-8")
+  contentHash: String # hex of [u8; 32]
+  createdBlock: Int! # block when message was written (from metadata.created_at)
+  ipfsContent: String # fetched text content; null for non-text/plain or fetch failure
 }
 
 type Property @entity {
   id: ID!
+  # on-chain NFT identifiers — needed to find this row from events that only carry (collection, item), e.g. realEstateNfts.Burned
+  collection: Int @index
+  item: Int @index
+  propertyId: String
   propertyName: String
   propertyType: String
   status: String
+  propertyDescription: String
+  developerAddress: String
+  accountAddress: String
+  legalRepresentative: String
+  planningCode: String
+  buildingControlCode: String
+  map: String
+  createdAt: String
+  updatedAt: String
+
+  # company
+  companyName: String
+  companyLogo: String
+
+  # address
+  street: String
+  townCity: String
+  postCode: String
+  flatOrUnit: String
+  localAuthority: String
+
+  # financials
   propertyPrice: Int
   pricePerToken: Int
   numberOfTokens: Int
   estimatedRentalIncome: Int
+  stampDutyTax: Int
+  annualServiceCharge: Int
+  isStampDutyPaid: Boolean
+  isAnnualServiceChargePaid: Boolean
+
+  # attributes
   numberOfBedrooms: Int
   numberOfBathrooms: Int
   area: String
-  street: String
-  townCity: String
-  postCode: String
-  developerAddress: String
-  createdAt: String
+  outdoorSpace: String
+  offStreetParking: String
+  quality: String
+  constructionDate: String
+
+  # files (S3 object keys; app generates fresh presigned URLs on demand)
+  files: [String]
 }

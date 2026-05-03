@@ -24,13 +24,16 @@
   "devDependencies": {
     "@polkadot/api": "^16",
     "@subql/cli": "latest",
+    "@subql/common-substrate": "latest",
     "@subql/testing": "latest",
     "@subql/types": "latest",
-    "typescript": "latest",
-    "@subql/common-substrate": "latest",
-    "dotenv": "latest"
+    "dotenv": "latest",
+    "typescript": "latest"
   },
   "resolutions": {
     "ipfs-unixfs": "6.0.6"
+  },
+  "dependencies": {
+    "axios": "^1.16.0"
   }
 }

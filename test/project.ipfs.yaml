@@ -1,0 +1,26 @@
+dataSources:
+  - kind: substrate/Runtime
+    mapping:
+      file: ipfs://QmPJ3wbzDSw9Ki5EMAFhZcWk23J7wUJqxUCiBuur9g4uk9
+      handlers:
+        - filter:
+            module: realEstateNfts
+          handler: handleRealEstateEvent
+          kind: substrate/EventHandler
+        - filter:
+            module: buckets
+          handler: handleBucketsEvent
+          kind: substrate/EventHandler
+    startBlock: 761000
+network:
+  chainId: '0xe600ea6d0dfa0987874bc539b4c471b9f7e5a3277e80989e47a6cc69bb944511'
+runner:
+  node:
+    name: '@subql/node'
+    version: '>=3.0.1'
+  query:
+    name: '@subql/query'
+    version: '*'
+schema:
+  file: ipfs://QmayiVfp3gjNvotxt2ByLT55V8bGdS8SWUcb1BnJGdNch2
+specVersion: 1.0.0

@@ -1,7 +1,7 @@
 {
-  "name": "xcavate-indexer-test",
+  "name": "xcavate-indexer",
   "version": "1.0.0",
-  "description": "This project can be used as a starting point for developing your SubQuery project",
+  "description": "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, and DIDs.",
   "main": "dist/index.js",
   "scripts": {
     "build": "subql codegen && subql build",
@@ -32,8 +32,5 @@
   },
   "resolutions": {
     "ipfs-unixfs": "6.0.6"
-  },
-  "dependencies": {
-    "axios": "^1.16.0"
   }
 }

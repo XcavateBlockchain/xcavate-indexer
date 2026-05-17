@@ -34,19 +34,44 @@ export async function handleBucketsEvent(
   }
 }
 
+// Saves a new Bucket row. Handles both the OLD 3-arg and NEW 4-arg event shapes.
 async function handleBucketCreated(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  // NEW event shape: (namespace_id, bucket_id, bucket: BucketDetails, creator)
-  const [namespaceArg, bucketArg, bucketStructArg, creatorArg] =
-    event.event.data;
-  const namespaceId = Number(namespaceArg.toString());
-  const bucketId = Number(bucketArg.toString());
+  const args = event.event.data;
+  const namespaceId = Number(args[0].toString());
+  const bucketId = Number(args[1].toString());
 
-  const bucketStruct = bucketStructArg as any;
-  const name = bytesToUtf8(bucketStruct.metadata.name);
-  const category = bytesToUtf8(bucketStruct.metadata.category);
+  let name: string | undefined;
+  let category: string | undefined;
+  let creatorArg: any;
+
+  const maybeStruct = args[2] as any;
+  const isNewShape = maybeStruct && maybeStruct.metadata != null;
+
+  if (isNewShape) {
+    name = bytesToUtf8(maybeStruct.metadata.name);
+    category = bytesToUtf8(maybeStruct.metadata.category);
+    creatorArg = args[3];
+  } else {
+    creatorArg = args[2];
+    try {
+      const stored = (await api.query.buckets.buckets(
+        namespaceId,
+        bucketId,
+      )) as any;
+      if (stored?.isSome) {
+        const s = stored.unwrap();
+        name = bytesToUtf8(s.metadata.name);
+        category = bytesToUtf8(s.metadata.category);
+      }
+    } catch (e) {
+      logger.warn(
+        `Block ${blockNumber}: BucketCreated (${namespaceId}, ${bucketId}) — storage fallback failed: ${e}`,
+      );
+    }
+  }
 
   const creatorOpt = creatorArg as any;
   const creator = creatorOpt?.isSome
@@ -60,7 +85,6 @@ async function handleBucketCreated(
     creator,
     name,
     category,
-    // status defaults to Locked at creation; admin must call resume_writing
     isWritable: false,
     encryptionKey: undefined,
     createdBlock: blockNumber,
@@ -72,6 +96,71 @@ async function handleBucketCreated(
   );
 }
 
+// Backfills a Bucket row from storage when the parent event was missed
+// (e.g. created before startBlock). Without this, FK inserts on Message /
+// BucketContributor / BucketAdmin crash the worker.
+async function ensureBucket(
+  namespaceId: number,
+  bucketId: number,
+  blockNumber: number,
+): Promise<void> {
+  const existing = await Bucket.get(bucketId.toString());
+  if (existing) return;
+
+  logger.warn(
+    `Block ${blockNumber}: bucket ${bucketId} not in DB — backfilling from storage (ns=${namespaceId})`,
+  );
+
+  try {
+    const stored = (await api.query.buckets.buckets(
+      namespaceId,
+      bucketId,
+    )) as any;
+    if (!stored?.isSome) {
+      logger.warn(
+        `Block ${blockNumber}: bucket ${bucketId} (ns=${namespaceId}) not in storage either — child rows will FK-fail`,
+      );
+      return;
+    }
+    const s = stored.unwrap();
+    const name = bytesToUtf8(s.metadata.name);
+    const category = bytesToUtf8(s.metadata.category);
+
+    let isWritable = false;
+    let encryptionKey: string | undefined;
+    try {
+      const status = s.status;
+      if (status?.isWritable) {
+        isWritable = true;
+        encryptionKey = status.asWritable.toHex();
+      }
+    } catch {
+      /* leave defaults */
+    }
+
+    const bucket = Bucket.create({
+      id: bucketId.toString(),
+      namespaceId,
+      bucketId,
+      creator: undefined,
+      name,
+      category,
+      isWritable,
+      encryptionKey,
+      createdBlock: blockNumber,
+    });
+    await bucket.save();
+    logger.info(
+      `Block ${blockNumber}: backfilled bucket ${bucketId} (${name})`,
+    );
+  } catch (e) {
+    logger.error(
+      `Block ${blockNumber}: ensureBucket(${bucketId}) failed: ${e}`,
+    );
+  }
+}
+
+// Removes a Bucket row (cascades to its children via FK).
 async function handleBucketDeleted(
   event: SubstrateEvent,
   blockNumber: number,
@@ -96,6 +185,7 @@ async function handleBucketDeleted(
   logger.info(`Block ${blockNumber}: removed bucket ${bucketId}`);
 }
 
+// Marks a Bucket as locked (no writes allowed) and clears the encryption key.
 async function handlePausedBucket(
   event: SubstrateEvent,
   blockNumber: number,
@@ -108,10 +198,12 @@ async function handlePausedBucket(
     `Block ${blockNumber}: PausedBucket — namespace=${namespaceId}, bucket=${bucketId}`,
   );
 
+  await ensureBucket(namespaceId, bucketId, blockNumber);
+
   const bucket = await Bucket.get(bucketId.toString());
   if (!bucket) {
     logger.warn(
-      `Block ${blockNumber}: PausedBucket for bucket ${bucketId} but no row found`,
+      `Block ${blockNumber}: PausedBucket for bucket ${bucketId} but ensureBucket failed`,
     );
     return;
   }
@@ -122,6 +214,7 @@ async function handlePausedBucket(
   logger.info(`Block ${blockNumber}: paused bucket ${bucketId}`);
 }
 
+// Marks a Bucket as writable and stores the new symmetric encryption key.
 async function handleBucketWritableWithKey(
   event: SubstrateEvent,
   blockNumber: number,
@@ -135,10 +228,12 @@ async function handleBucketWritableWithKey(
     `Block ${blockNumber}: BucketWritableWithKey — namespace=${namespaceId}, bucket=${bucketId}`,
   );
 
+  await ensureBucket(namespaceId, bucketId, blockNumber);
+
   const bucket = await Bucket.get(bucketId.toString());
   if (!bucket) {
     logger.warn(
-      `Block ${blockNumber}: BucketWritableWithKey for bucket ${bucketId} but no row found`,
+      `Block ${blockNumber}: BucketWritableWithKey for bucket ${bucketId} but ensureBucket failed`,
     );
     return;
   }
@@ -151,14 +246,18 @@ async function handleBucketWritableWithKey(
   );
 }
 
+// Adds a contributor (write permission) to a bucket.
 async function handleContributorAdded(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [, bucketArg, contributorArg] = event.event.data;
+  const [namespaceArg, bucketArg, contributorArg] = event.event.data;
+  const namespaceId = Number(namespaceArg.toString());
   const bucketId = Number(bucketArg.toString());
   const subjectId = contributorArg.toString();
   const id = `${bucketId}-${subjectId}`;
+
+  await ensureBucket(namespaceId, bucketId, blockNumber);
 
   const row = BucketContributor.create({
     id,
@@ -172,6 +271,7 @@ async function handleContributorAdded(
   );
 }
 
+// Removes a contributor from a bucket.
 async function handleContributorRemoved(
   event: SubstrateEvent,
   blockNumber: number,
@@ -195,14 +295,18 @@ async function handleContributorRemoved(
   );
 }
 
+// Adds an admin (manage-membership permission) to a bucket.
 async function handleAdminAdded(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [, bucketArg, adminArg] = event.event.data;
+  const [namespaceArg, bucketArg, adminArg] = event.event.data;
+  const namespaceId = Number(namespaceArg.toString());
   const bucketId = Number(bucketArg.toString());
   const subjectId = adminArg.toString();
   const id = `${bucketId}-${subjectId}`;
+
+  await ensureBucket(namespaceId, bucketId, blockNumber);
 
   const row = BucketAdmin.create({
     id,
@@ -216,6 +320,7 @@ async function handleAdminAdded(
   );
 }
 
+// Removes an admin from a bucket.
 async function handleAdminRemoved(
   event: SubstrateEvent,
   blockNumber: number,
@@ -239,20 +344,55 @@ async function handleAdminRemoved(
   );
 }
 
+// Saves a new Message and fetches its IPFS body if it's text/plain.
+// Handles both OLD 3-arg and NEW 5-arg event shapes.
 async function handleNewMessage(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  // NEW event shape: (namespace_id, bucket_id, message_id, message: MessageDetails, contributor)
-  const [, bucketArg, messageIdArg, messageStructArg, contributorArg] =
-    event.event.data;
-  const bucketId = Number(bucketArg.toString());
-  const messageId = Number(messageIdArg.toString());
-  const contributor = contributorArg.toString();
+  const args = event.event.data;
+  const isNewShape = args.length >= 5;
+
+  let bucketId: number;
+  let messageId: number;
+  let contributor: string;
+  let messageStruct: any | undefined;
+
+  let namespaceId: number;
+  if (isNewShape) {
+    namespaceId = Number(args[0].toString());
+    bucketId = Number(args[1].toString());
+    messageId = Number(args[2].toString());
+    messageStruct = args[3];
+    contributor = args[4].toString();
+  } else {
+    // OLD event shape has no namespace_id; Xcavate has only ever used 0.
+    namespaceId = 0;
+    bucketId = Number(args[0].toString());
+    messageId = Number(args[1].toString());
+    contributor = args[2].toString();
+  }
+
   const id = `${bucketId}-${messageId}`;
 
+  await ensureBucket(namespaceId, bucketId, blockNumber);
+
   try {
-    const m = messageStructArg as any;
+    let m = messageStruct;
+
+    if (!m) {
+      const stored = (await api.query.buckets.messages(
+        bucketId,
+        messageId,
+      )) as any;
+      if (!stored?.isSome) {
+        logger.warn(
+          `Block ${blockNumber}: NewMessage ${id} — storage entry missing`,
+        );
+        return;
+      }
+      m = stored.unwrap();
+    }
 
     const reference = bytesToUtf8(m.reference);
     const tag =
@@ -292,6 +432,7 @@ async function handleNewMessage(
   }
 }
 
+// Removes a message row.
 async function handleMessageDeleted(
   event: SubstrateEvent,
   blockNumber: number,

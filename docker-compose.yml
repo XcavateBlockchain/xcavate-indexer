@@ -37,8 +37,11 @@ services:
       - --db-schema=app
       - --workers=2
       - --batch-size=15
-      - --unfinalized-blocks=true
+      # Match OnFinality hosted behavior: only index finalized blocks.
+      # Avoids local DB showing transient data that gets rolled back upstream.
+      - --unfinalized-blocks=false
       - --unsafe
+      - --skip-transactions
     healthcheck:
       test: ["CMD", "curl", "-f", "http://subquery-node:3000/ready"]
       interval: 10s

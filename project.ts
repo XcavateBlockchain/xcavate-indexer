@@ -20,9 +20,9 @@ dotenv.config({ path: dotenvPath, quiet: true });
 const project: SubstrateProject = {
   specVersion: "1.0.0",
   version: "0.0.1",
-  name: "polkadot-starter",
+  name: "xcavate-indexer",
   description:
-    "This project can be used as a starting point for developing your SubQuery project",
+    "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, and DIDs.",
   runner: {
     node: {
       name: "@subql/node",
@@ -52,23 +52,34 @@ const project: SubstrateProject = {
   dataSources: [
     {
       kind: SubstrateDatasourceKind.Runtime,
-      // startBlock: 1807440,
-      startBlock: 761000,
+      // startBlock: 761000,
+      startBlock: 1807000,
+      // startBlock: 1835200,
+      // startBlock: 1,
+      // startBlock: 1961000,
       mapping: {
         file: "./dist/index.js",
         handlers: [
-          {
-            kind: SubstrateHandlerKind.Event,
-            handler: "handleRealEstateEvent",
-            filter: {
-              module: "realEstateNfts",
-            },
-          },
+          // Disabled — re-enable when ready to index real estate NFTs.
+          // {
+          //   kind: SubstrateHandlerKind.Event,
+          //   handler: "handleRealEstateEvent",
+          //   filter: {
+          //     module: "realEstateNfts",
+          //   },
+          // },
           {
             kind: SubstrateHandlerKind.Event,
             handler: "handleBucketsEvent",
             filter: {
               module: "buckets",
+            },
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handleDidEvent",
+            filter: {
+              module: "did",
             },
           },
         ],

@@ -2,21 +2,20 @@ import { Bytes } from "@polkadot/types";
 import { request } from "https";
 import { URL } from "url";
 
-// We accept `any` here to side-step the duplicate-Codec-type issue caused by
-// having two @polkadot/util versions in the dep tree. At runtime each event arg
-// IS a Bytes-compatible instance — the cast is safe.
+// Decodes a Bytes codec value to a UTF-8 string.
 export function bytesToUtf8(codec: any): string {
   return (codec as unknown as Bytes).toUtf8();
 }
 
+// Returns the hex representation of any codec value.
 export function bytesToHex(codec: any): string {
   return codec.toHex();
 }
 
 const IPFS_GATEWAY = "https://aquamarine-legal-boa-846.mypinata.cloud/ipfs/";
 
-// Tiny https GET wrapper — avoids both `fetch` (not in VM sandbox) and
-// `axios` (no adapter detected in sandbox). Node's `https` module works.
+// Plain https GET — fetch/axios don't work in the SubQuery VM sandbox.
+// Requires the indexer to be started with --unsafe.
 function httpsGetText(url: string, timeoutMs = 10_000): Promise<string> {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
@@ -47,6 +46,8 @@ function httpsGetText(url: string, timeoutMs = 10_000): Promise<string> {
   });
 }
 
+// Fetches the IPFS content at the given CID and returns it as text.
+// Returns undefined on any failure (no retry).
 export async function fetchIpfsText(cid: string): Promise<string | undefined> {
   if (!cid?.startsWith("baf")) return undefined;
   try {

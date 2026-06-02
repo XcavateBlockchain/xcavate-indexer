@@ -1,6 +1,16 @@
-import { SubstrateEvent } from "@subql/types";
+import type { SubstrateEvent } from "@subql/types";
+
 import { Bucket, BucketAdmin, BucketContributor, Message } from "../types";
-import { bytesToUtf8, fetchIpfsText } from "./common";
+
+import {
+  asOption,
+  asRecord,
+  formatError,
+  fetchIpfsText,
+  toHexString,
+  toNumber,
+  toUtf8String,
+} from "./common";
 
 export async function handleBucketsEvent(
   event: SubstrateEvent,
@@ -39,43 +49,45 @@ async function handleBucketCreated(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const args = event.event.data;
-  const namespaceId = Number(args[0].toString());
-  const bucketId = Number(args[1].toString());
+  const args = event.event.data as unknown[];
+  const namespaceId = Number(String(args[0]));
+  const bucketId = Number(String(args[1]));
 
   let name: string | undefined;
   let category: string | undefined;
-  let creatorArg: any;
+  let creatorArg: unknown;
 
-  const maybeStruct = args[2] as any;
-  const isNewShape = maybeStruct && maybeStruct.metadata != null;
+  const maybeStruct = asRecord(args[2]);
+  const metadata = asRecord(maybeStruct?.metadata);
+  const isNewShape = metadata != null;
 
   if (isNewShape) {
-    name = bytesToUtf8(maybeStruct.metadata.name);
-    category = bytesToUtf8(maybeStruct.metadata.category);
+    name = metadata ? toUtf8String(metadata.name) : undefined;
+    category = metadata ? toUtf8String(metadata.category) : undefined;
     creatorArg = args[3];
   } else {
     creatorArg = args[2];
     try {
-      const stored = (await api.query.buckets.buckets(
-        namespaceId,
-        bucketId,
-      )) as any;
-      if (stored?.isSome) {
-        const s = stored.unwrap();
-        name = bytesToUtf8(s.metadata.name);
-        category = bytesToUtf8(s.metadata.category);
+      const stored = await api.query.buckets.buckets(namespaceId, bucketId);
+      const storedOpt = asOption(stored);
+      if (storedOpt?.isSome) {
+        const storedValue = asRecord(storedOpt.unwrap());
+        const storedMeta = asRecord(storedValue?.metadata);
+        if (storedMeta) {
+          name = toUtf8String(storedMeta.name);
+          category = toUtf8String(storedMeta.category);
+        }
       }
     } catch (e) {
       logger.warn(
-        `Block ${blockNumber}: BucketCreated (${namespaceId}, ${bucketId}) — storage fallback failed: ${e}`,
+        `Block ${blockNumber}: BucketCreated (${namespaceId}, ${bucketId}) — storage fallback failed: ${formatError(e)}`,
       );
     }
   }
 
-  const creatorOpt = creatorArg as any;
+  const creatorOpt = asOption(creatorArg);
   const creator = creatorOpt?.isSome
-    ? creatorOpt.unwrap().toString()
+    ? String(creatorOpt.unwrap())
     : undefined;
 
   const bucket = Bucket.create({
@@ -112,27 +124,32 @@ async function ensureBucket(
   );
 
   try {
-    const stored = (await api.query.buckets.buckets(
-      namespaceId,
-      bucketId,
-    )) as any;
-    if (!stored?.isSome) {
+    const stored = await api.query.buckets.buckets(namespaceId, bucketId);
+    const storedOpt = asOption(stored);
+    if (!storedOpt?.isSome) {
       logger.warn(
         `Block ${blockNumber}: bucket ${bucketId} (ns=${namespaceId}) not in storage either — child rows will FK-fail`,
       );
       return;
     }
-    const s = stored.unwrap();
-    const name = bytesToUtf8(s.metadata.name);
-    const category = bytesToUtf8(s.metadata.category);
+    const storedValue = asRecord(storedOpt.unwrap());
+    const storedMeta = asRecord(storedValue?.metadata);
+    if (!storedMeta) {
+      logger.warn(
+        `Block ${blockNumber}: bucket ${bucketId} (ns=${namespaceId}) missing metadata in storage`,
+      );
+      return;
+    }
+    const name = toUtf8String(storedMeta.name);
+    const category = toUtf8String(storedMeta.category);
 
     let isWritable = false;
     let encryptionKey: string | undefined;
     try {
-      const status = s.status;
-      if (status?.isWritable) {
+      const status = asRecord(storedValue?.status);
+      if (status?.isWritable === true) {
         isWritable = true;
-        encryptionKey = status.asWritable.toHex();
+        encryptionKey = toHexString(status.asWritable);
       }
     } catch {
       /* leave defaults */
@@ -155,7 +172,7 @@ async function ensureBucket(
     );
   } catch (e) {
     logger.error(
-      `Block ${blockNumber}: ensureBucket(${bucketId}) failed: ${e}`,
+      `Block ${blockNumber}: ensureBucket(${bucketId}) failed: ${formatError(e)}`,
     );
   }
 }
@@ -165,9 +182,9 @@ async function handleBucketDeleted(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [namespaceArg, bucketArg] = event.event.data;
-  const namespaceId = Number(namespaceArg.toString());
-  const bucketId = Number(bucketArg.toString());
+  const [namespaceArg, bucketArg] = event.event.data as unknown[];
+  const namespaceId = Number(String(namespaceArg));
+  const bucketId = Number(String(bucketArg));
 
   logger.info(
     `Block ${blockNumber}: BucketDeleted — namespace=${namespaceId}, bucket=${bucketId}`,
@@ -190,9 +207,9 @@ async function handlePausedBucket(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [namespaceArg, bucketArg] = event.event.data;
-  const namespaceId = Number(namespaceArg.toString());
-  const bucketId = Number(bucketArg.toString());
+  const [namespaceArg, bucketArg] = event.event.data as unknown[];
+  const namespaceId = Number(String(namespaceArg));
+  const bucketId = Number(String(bucketArg));
 
   logger.info(
     `Block ${blockNumber}: PausedBucket — namespace=${namespaceId}, bucket=${bucketId}`,
@@ -219,14 +236,21 @@ async function handleBucketWritableWithKey(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [namespaceArg, bucketArg, keyArg] = event.event.data;
-  const namespaceId = Number(namespaceArg.toString());
-  const bucketId = Number(bucketArg.toString());
-  const encryptionKey = keyArg.toHex();
+  const [namespaceArg, bucketArg, keyArg] = event.event.data as unknown[];
+  const namespaceId = Number(String(namespaceArg));
+  const bucketId = Number(String(bucketArg));
+  const encryptionKey = toHexString(keyArg);
 
   logger.info(
     `Block ${blockNumber}: BucketWritableWithKey — namespace=${namespaceId}, bucket=${bucketId}`,
   );
+
+  if (!encryptionKey) {
+    logger.warn(
+      `Block ${blockNumber}: BucketWritableWithKey for bucket ${bucketId} missing encryption key`,
+    );
+    return;
+  }
 
   await ensureBucket(namespaceId, bucketId, blockNumber);
 
@@ -251,10 +275,11 @@ async function handleContributorAdded(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [namespaceArg, bucketArg, contributorArg] = event.event.data;
-  const namespaceId = Number(namespaceArg.toString());
-  const bucketId = Number(bucketArg.toString());
-  const subjectId = contributorArg.toString();
+  const [namespaceArg, bucketArg, contributorArg] =
+    event.event.data as unknown[];
+  const namespaceId = Number(String(namespaceArg));
+  const bucketId = Number(String(bucketArg));
+  const subjectId = String(contributorArg);
   const id = `${bucketId}-${subjectId}`;
 
   await ensureBucket(namespaceId, bucketId, blockNumber);
@@ -276,9 +301,9 @@ async function handleContributorRemoved(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [, bucketArg, contributorArg] = event.event.data;
-  const bucketId = Number(bucketArg.toString());
-  const subjectId = contributorArg.toString();
+  const [, bucketArg, contributorArg] = event.event.data as unknown[];
+  const bucketId = Number(String(bucketArg));
+  const subjectId = String(contributorArg);
   const id = `${bucketId}-${subjectId}`;
 
   const existing = await BucketContributor.get(id);
@@ -300,10 +325,10 @@ async function handleAdminAdded(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [namespaceArg, bucketArg, adminArg] = event.event.data;
-  const namespaceId = Number(namespaceArg.toString());
-  const bucketId = Number(bucketArg.toString());
-  const subjectId = adminArg.toString();
+  const [namespaceArg, bucketArg, adminArg] = event.event.data as unknown[];
+  const namespaceId = Number(String(namespaceArg));
+  const bucketId = Number(String(bucketArg));
+  const subjectId = String(adminArg);
   const id = `${bucketId}-${subjectId}`;
 
   await ensureBucket(namespaceId, bucketId, blockNumber);
@@ -325,9 +350,9 @@ async function handleAdminRemoved(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [, bucketArg, adminArg] = event.event.data;
-  const bucketId = Number(bucketArg.toString());
-  const subjectId = adminArg.toString();
+  const [, bucketArg, adminArg] = event.event.data as unknown[];
+  const bucketId = Number(String(bucketArg));
+  const subjectId = String(adminArg);
   const id = `${bucketId}-${subjectId}`;
 
   const existing = await BucketAdmin.get(id);
@@ -350,27 +375,27 @@ async function handleNewMessage(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const args = event.event.data;
+  const args = event.event.data as unknown[];
   const isNewShape = args.length >= 5;
 
   let bucketId: number;
   let messageId: number;
   let contributor: string;
-  let messageStruct: any | undefined;
+  let messageStruct: Record<string, unknown> | undefined;
 
   let namespaceId: number;
   if (isNewShape) {
-    namespaceId = Number(args[0].toString());
-    bucketId = Number(args[1].toString());
-    messageId = Number(args[2].toString());
-    messageStruct = args[3];
-    contributor = args[4].toString();
+    namespaceId = Number(String(args[0]));
+    bucketId = Number(String(args[1]));
+    messageId = Number(String(args[2]));
+    messageStruct = asRecord(args[3]);
+    contributor = String(args[4]);
   } else {
     // OLD event shape has no namespace_id; Xcavate has only ever used 0.
     namespaceId = 0;
-    bucketId = Number(args[0].toString());
-    messageId = Number(args[1].toString());
-    contributor = args[2].toString();
+    bucketId = Number(String(args[0]));
+    messageId = Number(String(args[1]));
+    contributor = String(args[2]);
   }
 
   const id = `${bucketId}-${messageId}`;
@@ -381,26 +406,41 @@ async function handleNewMessage(
     let m = messageStruct;
 
     if (!m) {
-      const stored = (await api.query.buckets.messages(
-        bucketId,
-        messageId,
-      )) as any;
-      if (!stored?.isSome) {
+      const stored = await api.query.buckets.messages(bucketId, messageId);
+      const storedOpt = asOption(stored);
+      if (!storedOpt?.isSome) {
         logger.warn(
           `Block ${blockNumber}: NewMessage ${id} — storage entry missing`,
         );
         return;
       }
-      m = stored.unwrap();
+      m = asRecord(storedOpt.unwrap());
     }
 
-    const reference = bytesToUtf8(m.reference);
-    const tag =
-      m.tag && m.tag.isSome ? bytesToUtf8(m.tag.unwrap()) : undefined;
-    const description = bytesToUtf8(m.metadata.description);
-    const contentType = bytesToUtf8(m.metadata.contentType);
-    const contentHash = m.metadata.contentHash.toHex();
-    const createdBlock = Number(m.metadata.createdAt.toString());
+    if (!m) {
+      logger.warn(`Block ${blockNumber}: NewMessage ${id} — invalid payload`);
+      return;
+    }
+
+    const metadata = asRecord(m.metadata);
+    if (!metadata) {
+      logger.warn(`Block ${blockNumber}: NewMessage ${id} — missing metadata`);
+      return;
+    }
+
+    const reference = toUtf8String(m.reference);
+    const tagOpt = asOption(m.tag);
+    const tag = tagOpt?.isSome ? toUtf8String(tagOpt.unwrap()) : undefined;
+    const description = toUtf8String(metadata.description);
+    const contentType = toUtf8String(metadata.contentType);
+    const contentHash = toHexString(metadata.contentHash);
+    if (!contentHash) {
+      logger.warn(
+        `Block ${blockNumber}: NewMessage ${id} — missing content hash`,
+      );
+      return;
+    }
+    const createdBlock = toNumber(metadata.createdAt) ?? blockNumber;
 
     let ipfsContent: string | undefined;
     if (contentType.startsWith("text/plain")) {
@@ -427,7 +467,7 @@ async function handleNewMessage(
     );
   } catch (e) {
     logger.error(
-      `Block ${blockNumber}: failed to decode NewMessage ${id} — ${e}`,
+      `Block ${blockNumber}: failed to decode NewMessage ${id} — ${formatError(e)}`,
     );
   }
 }
@@ -437,9 +477,9 @@ async function handleMessageDeleted(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [bucketArg, messageIdArg] = event.event.data;
-  const bucketId = Number(bucketArg.toString());
-  const messageId = Number(messageIdArg.toString());
+  const [bucketArg, messageIdArg] = event.event.data as unknown[];
+  const bucketId = Number(String(bucketArg));
+  const messageId = Number(String(messageIdArg));
   const id = `${bucketId}-${messageId}`;
 
   const existing = await Message.get(id);

@@ -1,5 +1,16 @@
-import { SubstrateEvent } from "@subql/types";
+import type { SubstrateEvent } from "@subql/types";
+
 import { Did } from "../types";
+
+import {
+  asOption,
+  asRecord,
+  formatError,
+  getString,
+  getStringArray,
+  toNumber,
+  toJsonValue,
+} from "./common";
 
 export async function handleDidEvent(event: SubstrateEvent): Promise<void> {
   const blockNumber = event.block.block.header.number.toNumber();
@@ -24,7 +35,8 @@ async function handleDidCreated(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const didId = event.event.data[1].toString();
+  const args = event.event.data as unknown[];
+  const didId = String(args[1]);
   await syncDidFromStorage(didId, blockNumber, true);
 }
 
@@ -33,7 +45,8 @@ async function handleDidUpdated(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const didId = event.event.data[0].toString();
+  const args = event.event.data as unknown[];
+  const didId = String(args[0]);
   await syncDidFromStorage(didId, blockNumber, false);
 }
 
@@ -42,7 +55,8 @@ async function handleDidDeleted(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const didId = event.event.data[0].toString();
+  const args = event.event.data as unknown[];
+  const didId = String(args[0]);
 
   const existing = await Did.get(didId);
   if (!existing) {
@@ -62,10 +76,10 @@ async function handleDepositOwnerChanged(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const args = event.event.data;
-  const didId = args[0].toString();
-  const fromOwner = args[1].toString();
-  const toOwner = args[2].toString();
+  const args = event.event.data as unknown[];
+  const didId = String(args[0]);
+  const fromOwner = String(args[1]);
+  const toOwner = String(args[2]);
 
   const existing = await Did.get(didId);
   if (!existing) {
@@ -93,31 +107,38 @@ async function syncDidFromStorage(
   isCreation: boolean,
 ): Promise<void> {
   try {
-    const stored = (await api.query.did.did(didId)) as any;
-    if (!stored?.isSome) {
+    const stored = await api.query.did.did(didId);
+    const storedOpt = asOption(stored);
+    if (!storedOpt?.isSome) {
       logger.warn(
         `Block ${blockNumber}: DID ${didId} not in storage — skipping`,
       );
       return;
     }
 
-    const d = stored.unwrap().toJSON() as any;
+    const storedValue = storedOpt.unwrap();
+    const jsonValue = toJsonValue(storedValue);
+    const d = asRecord(jsonValue);
+    if (!d) {
+      logger.warn(
+        `Block ${blockNumber}: DID ${didId} storage JSON invalid — skipping`,
+      );
+      return;
+    }
 
-    const authKey = resolvePublicKey(d.publicKeys, d.authenticationKey);
-    const kaHashes: string[] = Array.isArray(d.keyAgreementKeys)
-      ? d.keyAgreementKeys
-      : [];
+    const publicKeys = d.publicKeys;
+    const authKey = resolvePublicKey(publicKeys, getString(d.authenticationKey));
+    const kaHashes = getStringArray(d.keyAgreementKeys) ?? [];
     const kaKeys = kaHashes
-      .map((h) => resolvePublicKey(d.publicKeys, h))
+      .map((h) => resolvePublicKey(publicKeys, h))
       .filter((k): k is string => !!k);
-    const delegationKey = resolvePublicKey(d.publicKeys, d.delegationKey);
-    const attestationKey = resolvePublicKey(d.publicKeys, d.attestationKey);
-    const lastTxCounter =
-      d.lastTxCounter != null ? Number(d.lastTxCounter) : undefined;
+    const delegationKey = resolvePublicKey(publicKeys, getString(d.delegationKey));
+    const attestationKey = resolvePublicKey(publicKeys, getString(d.attestationKey));
+    const lastTxCounter = toNumber(d.lastTxCounter);
 
-    const depositOwner = d.deposit?.owner ?? undefined;
-    const depositAmount =
-      d.deposit?.amount != null ? Number(d.deposit.amount) : undefined;
+    const deposit = asRecord(d.deposit);
+    const depositOwner = getString(deposit?.owner);
+    const depositAmount = toNumber(deposit?.amount);
 
     const existing = await Did.get(didId);
 
@@ -141,7 +162,7 @@ async function syncDidFromStorage(
     );
   } catch (e) {
     logger.error(
-      `Block ${blockNumber}: failed to sync DID ${didId} — ${e}`,
+      `Block ${blockNumber}: failed to sync DID ${didId} — ${formatError(e)}`,
     );
   }
 }
@@ -149,39 +170,47 @@ async function syncDidFromStorage(
 // Looks up a key hash in the BTreeMap and returns the raw hex bytes of the
 // underlying Sr25519 / Ed25519 / Ecdsa / X25519 / Account variant.
 function resolvePublicKey(
-  publicKeys: any,
+  publicKeys: unknown,
   hash: string | undefined,
 ): string | undefined {
   if (!publicKeys || !hash) return undefined;
 
-  let entry: any;
+  let entryValue: unknown;
   if (Array.isArray(publicKeys)) {
-    const found = publicKeys.find((p: any) => p?.[0] === hash);
-    entry = found ? found[1] : undefined;
+    for (const entry of publicKeys) {
+      if (Array.isArray(entry) && entry[0] === hash) {
+        entryValue = entry[1];
+        break;
+      }
+    }
   } else {
-    entry = publicKeys[hash];
+    const record = asRecord(publicKeys);
+    entryValue = record?.[hash];
   }
-  if (!entry) return undefined;
+  if (!entryValue) return undefined;
 
-  const key = entry.key;
+  const entry = asRecord(entryValue);
+  const key = asRecord(entry?.key);
   if (!key) return undefined;
 
-  const ver = key.publicVerificationKey ?? key.PublicVerificationKey;
+  const ver = asRecord(key.publicVerificationKey) ??
+    asRecord(key.PublicVerificationKey);
   if (ver) {
     return (
-      ver.sr25519 ??
-      ver.Sr25519 ??
-      ver.ed25519 ??
-      ver.Ed25519 ??
-      ver.ecdsa ??
-      ver.Ecdsa ??
-      ver.account ??
-      ver.Account
+      getString(ver.sr25519) ??
+      getString(ver.Sr25519) ??
+      getString(ver.ed25519) ??
+      getString(ver.Ed25519) ??
+      getString(ver.ecdsa) ??
+      getString(ver.Ecdsa) ??
+      getString(ver.account) ??
+      getString(ver.Account)
     );
   }
-  const enc = key.publicEncryptionKey ?? key.PublicEncryptionKey;
+  const enc = asRecord(key.publicEncryptionKey) ??
+    asRecord(key.PublicEncryptionKey);
   if (enc) {
-    return enc.x25519 ?? enc.X25519;
+    return getString(enc.x25519) ?? getString(enc.X25519);
   }
   return undefined;
 }

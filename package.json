@@ -8,6 +8,8 @@
     "codegen": "subql codegen",
     "start:docker": "docker compose pull && docker compose up --remove-orphans",
     "dev": "subql codegen && subql build && docker compose pull && docker compose up --remove-orphans",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
     "prepack": "rm -rf dist && npm run build",
     "test": "subql build && subql-node test",
     "build:develop": "NODE_ENV=develop subql codegen && NODE_ENV=develop subql build"
@@ -22,12 +24,18 @@
   "author": "lerty",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/eslintrc": "latest",
+    "@eslint/js": "latest",
     "@polkadot/api": "^16",
     "@subql/cli": "latest",
     "@subql/common-substrate": "latest",
     "@subql/testing": "latest",
     "@subql/types": "latest",
+    "@typescript-eslint/eslint-plugin": "latest",
+    "@typescript-eslint/parser": "latest",
     "dotenv": "latest",
+    "eslint": "latest",
+    "eslint-plugin-import": "latest",
     "typescript": "latest"
   },
   "resolutions": {

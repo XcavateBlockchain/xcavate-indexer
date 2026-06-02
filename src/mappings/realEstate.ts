@@ -1,6 +1,17 @@
-import { SubstrateEvent } from "@subql/types";
+import type { SubstrateEvent } from "@subql/types";
+
 import { Property } from "../types";
-import { bytesToUtf8 } from "./common";
+
+import {
+  asRecord,
+  formatError,
+  getBoolean,
+  getNumber,
+  getString,
+  getStringArray,
+  parseJson,
+  toUtf8String,
+} from "./common";
 
 export async function handleRealEstateEvent(
   event: SubstrateEvent,
@@ -22,74 +33,89 @@ async function handleItemMetadataSet(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [collectionArg, itemArg, dataArg] = event.event.data;
-  const collection = collectionArg.toString();
-  const item = itemArg.toString();
+  const [collectionArg, itemArg, dataArg] = event.event.data as unknown[];
+  const collection = String(collectionArg);
+  const item = String(itemArg);
 
   logger.info(
     `Block ${blockNumber}: ItemMetadataSet — collection=${collection}, item=${item}`,
   );
 
   try {
-    const jsonStr = bytesToUtf8(dataArg);
-    const data = JSON.parse(jsonStr);
-    const id: string = data.id ?? `${collection}-${item}`;
+    const jsonStr = toUtf8String(dataArg);
+    const data = parseJson(jsonStr);
+    const record = asRecord(data);
+    if (!record) {
+      logger.warn(
+        `Block ${blockNumber}: ItemMetadataSet for ${collection}-${item} returned non-object metadata`,
+      );
+      return;
+    }
+
+    const id = getString(record.id) ?? `${collection}-${item}`;
+    const company = asRecord(record.company);
+    const address = asRecord(record.address);
+    const financials = asRecord(record.financials);
+    const attributes = asRecord(record.attributes);
+    const propertyName = getString(record.propertyName);
 
     const property = Property.create({
       id,
-      collection: Number(collection),
-      item: Number(item),
-      propertyId: data.propertyId ?? undefined,
-      propertyName: data.propertyName ?? undefined,
-      propertyType: data.propertyType ?? undefined,
-      status: data.status ?? undefined,
-      propertyDescription: data.propertyDescription ?? undefined,
-      developerAddress: data.developerAddress ?? undefined,
-      accountAddress: data.accountAddress ?? undefined,
-      legalRepresentative: data.legalRepresentative ?? undefined,
-      planningCode: data.planningCode ?? undefined,
-      buildingControlCode: data.buildingControlCode ?? undefined,
-      map: data.map ?? undefined,
-      createdAt: data.createdAt ?? undefined,
-      updatedAt: data.updatedAt ?? undefined,
+      collection: getNumber(collection) ?? undefined,
+      item: getNumber(item) ?? undefined,
+      propertyId: getString(record.propertyId),
+      propertyName,
+      propertyType: getString(record.propertyType),
+      status: getString(record.status),
+      propertyDescription: getString(record.propertyDescription),
+      developerAddress: getString(record.developerAddress),
+      accountAddress: getString(record.accountAddress),
+      legalRepresentative: getString(record.legalRepresentative),
+      planningCode: getString(record.planningCode),
+      buildingControlCode: getString(record.buildingControlCode),
+      map: getString(record.map),
+      createdAt: getString(record.createdAt),
+      updatedAt: getString(record.updatedAt),
 
-      companyName: data.company?.name ?? undefined,
-      companyLogo: data.company?.logo ?? undefined,
+      companyName: getString(company?.name),
+      companyLogo: getString(company?.logo),
 
-      street: data.address?.street ?? undefined,
-      townCity: data.address?.townCity ?? undefined,
-      postCode: data.address?.postCode ?? undefined,
-      flatOrUnit: data.address?.flatOrUnit ?? undefined,
-      localAuthority: data.address?.localAuthority ?? undefined,
+      street: getString(address?.street),
+      townCity: getString(address?.townCity),
+      postCode: getString(address?.postCode),
+      flatOrUnit: getString(address?.flatOrUnit),
+      localAuthority: getString(address?.localAuthority),
 
-      propertyPrice: data.financials?.propertyPrice ?? undefined,
-      pricePerToken: data.financials?.pricePerToken ?? undefined,
-      numberOfTokens: data.financials?.numberOfTokens ?? undefined,
-      estimatedRentalIncome:
-        data.financials?.estimatedRentalIncome ?? undefined,
-      stampDutyTax: data.financials?.stampDutyTax ?? undefined,
-      annualServiceCharge: data.financials?.annualServiceCharge ?? undefined,
-      isStampDutyPaid: data.financials?.isStampDutyPaid ?? undefined,
-      isAnnualServiceChargePaid:
-        data.financials?.isAnnualServiceChargePaid ?? undefined,
+      propertyPrice: getNumber(financials?.propertyPrice),
+      pricePerToken: getNumber(financials?.pricePerToken),
+      numberOfTokens: getNumber(financials?.numberOfTokens),
+      estimatedRentalIncome: getNumber(financials?.estimatedRentalIncome),
+      stampDutyTax: getNumber(financials?.stampDutyTax),
+      annualServiceCharge: getNumber(financials?.annualServiceCharge),
+      isStampDutyPaid: getBoolean(financials?.isStampDutyPaid),
+      isAnnualServiceChargePaid: getBoolean(
+        financials?.isAnnualServiceChargePaid,
+      ),
 
-      numberOfBedrooms: data.attributes?.numberOfBedrooms ?? undefined,
-      numberOfBathrooms: data.attributes?.numberOfBathrooms ?? undefined,
-      area: data.attributes?.area ?? undefined,
-      outdoorSpace: data.attributes?.outdoorSpace ?? undefined,
-      offStreetParking: data.attributes?.offStreetParking ?? undefined,
-      quality: data.attributes?.quality ?? undefined,
-      constructionDate: data.attributes?.constructionDate ?? undefined,
+      numberOfBedrooms: getNumber(attributes?.numberOfBedrooms),
+      numberOfBathrooms: getNumber(attributes?.numberOfBathrooms),
+      area: getString(attributes?.area),
+      outdoorSpace: getString(attributes?.outdoorSpace),
+      offStreetParking: getString(attributes?.offStreetParking),
+      quality: getString(attributes?.quality),
+      constructionDate: getString(attributes?.constructionDate),
 
-      files: Array.isArray(data.files) ? data.files : undefined,
+      files: getStringArray(record.files),
     });
 
     await property.save();
     logger.info(
-      `Block ${blockNumber}: saved property ${id} — ${data.propertyName}`,
+      `Block ${blockNumber}: saved property ${id} — ${propertyName ?? "unknown"}`,
     );
   } catch (e) {
-    logger.error(`Block ${blockNumber}: failed to decode property — ${e}`);
+    logger.error(
+      `Block ${blockNumber}: failed to decode property — ${formatError(e)}`,
+    );
   }
 }
 
@@ -97,9 +123,9 @@ async function handleBurned(
   event: SubstrateEvent,
   blockNumber: number,
 ): Promise<void> {
-  const [collectionArg, itemArg] = event.event.data;
-  const collection = Number(collectionArg.toString());
-  const item = Number(itemArg.toString());
+  const [collectionArg, itemArg] = event.event.data as unknown[];
+  const collection = Number(String(collectionArg));
+  const item = Number(String(itemArg));
 
   logger.info(
     `Block ${blockNumber}: Burned — collection=${collection}, item=${item}`,

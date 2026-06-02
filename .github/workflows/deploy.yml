@@ -31,17 +31,14 @@ jobs:
               git clone --branch "$DEPLOY_BRANCH" "$REPO_URL" "$DEPLOY_DIR"
             fi
             cd "$DEPLOY_DIR"
-            if [ -n "$(git status --porcelain)" ]; then
-              echo "Working tree not clean. Commit or stash server-side changes."
-              exit 1
-            fi
             if [ -z "$ENDPOINT" ]; then
               echo "Missing ENDPOINT/WSS_ENDPOINT secret."
               exit 1
             fi
             git fetch origin "$DEPLOY_BRANCH"
-            git checkout "$DEPLOY_BRANCH"
-            git pull --ff-only origin "$DEPLOY_BRANCH"
+            git checkout -f "$DEPLOY_BRANCH"
+            git reset --hard "origin/$DEPLOY_BRANCH"
+            git clean -fd
             printf '%s\n' "ENDPOINT=$ENDPOINT" "CHAIN_ID=$CHAIN_ID" > .env
             yarn install
             yarn build

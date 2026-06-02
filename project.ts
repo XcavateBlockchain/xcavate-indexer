@@ -1,13 +1,13 @@
+import path from "path";
+
 import {
   SubstrateDatasourceKind,
   SubstrateHandlerKind,
-  SubstrateProject,
+  type SubstrateProject,
 } from "@subql/types";
-
 import * as dotenv from "dotenv";
-import path from "path";
 
-const mode = process.env.NODE_ENV || "production";
+const mode = process.env.NODE_ENV ?? "production";
 
 // Load the appropriate .env file
 const dotenvPath = path.resolve(
@@ -47,7 +47,7 @@ const project: SubstrateProject = {
      * If you use a rate limited endpoint, adjust the --batch-size and --workers parameters
      * These settings can be found in your docker-compose.yaml, they will slow indexing but prevent your project being rate limited
      */
-    endpoint: process.env.ENDPOINT!?.split(",") as string[] | string,
+    endpoint: process.env.ENDPOINT?.split(","),
   },
   dataSources: [
     {

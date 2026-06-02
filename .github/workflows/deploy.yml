@@ -1,0 +1,49 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          DEPLOY_BRANCH: main
+          REPO_URL: https://github.com/${{ github.repository }}.git
+          CHAIN_ID: ${{ secrets.CHAIN_ID }}
+          ENDPOINT: ${{ secrets.WSS_ENDPOINT || secrets.ENDPOINT }}
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: DEPLOY_DIR,DEPLOY_BRANCH,REPO_URL,CHAIN_ID,ENDPOINT
+          script: |
+            set -e
+            mkdir -p "$DEPLOY_DIR"
+            if [ ! -d "$DEPLOY_DIR/.git" ]; then
+              git clone --branch "$DEPLOY_BRANCH" "$REPO_URL" "$DEPLOY_DIR"
+            fi
+            cd "$DEPLOY_DIR"
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "Working tree not clean. Commit or stash server-side changes."
+              exit 1
+            fi
+            if [ -z "$ENDPOINT" ]; then
+              echo "Missing ENDPOINT/WSS_ENDPOINT secret."
+              exit 1
+            fi
+            git fetch origin "$DEPLOY_BRANCH"
+            git checkout "$DEPLOY_BRANCH"
+            git pull --ff-only origin "$DEPLOY_BRANCH"
+            printf '%s\n' "ENDPOINT=$ENDPOINT" "CHAIN_ID=$CHAIN_ID" > .env
+            yarn install
+            yarn build
+            docker compose pull
+            docker compose up -d --remove-orphans

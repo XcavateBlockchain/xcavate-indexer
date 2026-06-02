@@ -52,22 +52,21 @@ const project: SubstrateProject = {
   dataSources: [
     {
       kind: SubstrateDatasourceKind.Runtime,
-      // startBlock: 761000,
-      startBlock: 1807000,
-      // startBlock: 1835200,
-      // startBlock: 1,
-      // startBlock: 1961000,
+      startBlock: 2260000,
       mapping: {
         file: "./dist/index.js",
         handlers: [
-          // Disabled — re-enable when ready to index real estate NFTs.
-          // {
-          //   kind: SubstrateHandlerKind.Event,
-          //   handler: "handleRealEstateEvent",
-          //   filter: {
-          //     module: "realEstateNfts",
-          //   },
-          // },
+          {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handleRealEstateNftsSyncBlock",
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handleRealEstateNftsEvent",
+            filter: {
+              module: "realEstateNfts",
+            },
+          },
           {
             kind: SubstrateHandlerKind.Event,
             handler: "handleBucketsEvent",

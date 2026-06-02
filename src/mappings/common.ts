@@ -36,7 +36,7 @@ export function asOption(value: unknown): OptionLike | undefined {
   const isSome = value.isSome;
   const unwrap = value.unwrap;
   if (typeof isSome === "boolean" && typeof unwrap === "function") {
-    return { isSome, unwrap: unwrap as () => unknown };
+    return { isSome, unwrap: (unwrap as () => unknown).bind(value) };
   }
   return undefined;
 }

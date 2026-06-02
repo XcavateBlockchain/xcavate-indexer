@@ -8,7 +8,7 @@ Indexed pallets:
 | ---------------- | ------------------------------------------------------- |
 | `buckets`        | `Bucket`, `BucketContributor`, `BucketAdmin`, `Message` |
 | `did`            | `Did`                                                   |
-| `realEstateNfts` | `Property` *(handler disabled in `project.ts`)*         |
+| `realEstateNfts` | `RealEstateNft`                                         |
 
 ## Run locally
 
@@ -71,7 +71,7 @@ docker-compose.yml local stack
 src/mappings/
   buckets.ts       bucket/membership/message handlers + ensureBucket
   did.ts           DID handlers + key resolution
-  realEstate.ts    Property handler (disabled)
+  realEstateNfts.ts Property handler
   common.ts        utf8 / hex / IPFS helpers
 ```
 

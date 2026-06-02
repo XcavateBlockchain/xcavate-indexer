@@ -56,7 +56,7 @@ type Message @entity {
   ipfsContent: String # fetched text content; null for non-text/plain or fetch failure
 }
 
-type Property @entity {
+type RealEstateNft @entity {
   id: ID!
   # on-chain NFT identifiers — needed to find this row from events that only carry (collection, item), e.g. realEstateNfts.Burned
   collection: Int @index

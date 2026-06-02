@@ -67,3 +67,5 @@ Thumbs.db
 .env.local
 .env.develop
 .env.develop.local
+
+metadata.json

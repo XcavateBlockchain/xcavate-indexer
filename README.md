@@ -18,6 +18,22 @@ cp .env.example .env   # set ENDPOINT + CHAIN_ID
 npm run dev
 ```
 
+## Run with Docker
+
+```bash
+cp .env.example .env   # set ENDPOINT + CHAIN_ID
+```
+
+```bash
+docker compose up --build
+```
+
+Stop and remove containers and volumes:
+
+```bash
+docker compose down -v
+```
+
 GraphQL playground: <http://localhost:3000>.
 
 Requires Docker. Local config uses `--unsafe` (needed for IPFS fetches) and `--unfinalized-blocks=false` (matches OnFinality).

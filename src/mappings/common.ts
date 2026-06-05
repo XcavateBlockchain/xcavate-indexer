@@ -2,7 +2,7 @@ import { request } from "https";
 import { URL } from "url";
 
 type RecordLike = Record<string, unknown>;
-interface OptionLike {
+export interface OptionLike {
   isSome: boolean;
   unwrap: () => unknown;
 }
@@ -23,6 +23,22 @@ function hasToHex(value: unknown): value is RecordLike & {
   return isRecord(value) && typeof value.toHex === "function";
 }
 
+function hasToNumber(value: unknown): value is RecordLike & {
+  toNumber: () => unknown;
+} {
+  return isRecord(value) && typeof value.toNumber === "function";
+}
+
+function isCustomStringifiable(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.toString !== "function") return false;
+  return value.toString !== Object.prototype.toString;
+}
+
+function hexToUtf8(value: string): string | undefined {
+  if (!/^0x[0-9a-f]*$/i.test(value)) return undefined;
+  return Buffer.from(value.slice(2), "hex").toString("utf8");
+}
+
 export function getNumber(value: unknown): number | undefined {
   return toNumber(value);
 }
@@ -41,8 +57,18 @@ export function asOption(value: unknown): OptionLike | undefined {
   return undefined;
 }
 
+export function asStorageValue(value: unknown): OptionLike {
+  return asOption(value) ?? { isSome: true, unwrap: () => value };
+}
+
+export function getStorageKeyArgs(storageKey: unknown): unknown[] | undefined {
+  const record = asRecord(storageKey);
+  const args = record?.args;
+  return Array.isArray(args) ? args : undefined;
+}
+
 export function toUtf8String(value: unknown): string {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return hexToUtf8(value) ?? value;
   if (hasToUtf8(value)) {
     const toUtf8 = value.toUtf8;
     return String(toUtf8.call(value));
@@ -70,12 +96,19 @@ export function toJsonValue(value: unknown): unknown {
 
 export function toNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (hasToNumber(value)) {
+    const parsed = value.toNumber.call(value);
+    return typeof parsed === "number" && Number.isFinite(parsed)
+      ? parsed
+      : undefined;
+  }
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (trimmed.length === 0) return undefined;
     const parsed = Number(trimmed);
     return Number.isFinite(parsed) ? parsed : undefined;
   }
+  if (isCustomStringifiable(value)) return toNumber(String(value));
   return undefined;
 }
 

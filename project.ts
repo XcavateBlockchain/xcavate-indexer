@@ -58,13 +58,28 @@ const project: SubstrateProject = {
         handlers: [
           {
             kind: SubstrateHandlerKind.Block,
+            handler: "handleStartupSyncBlock",
+          },
+          {
+            kind: SubstrateHandlerKind.Block,
             handler: "handleRealEstateNftsSyncBlock",
+          },
+          {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handleMarketplaceSyncBlock",
           },
           {
             kind: SubstrateHandlerKind.Event,
             handler: "handleRealEstateNftsEvent",
             filter: {
               module: "realEstateNfts",
+            },
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handleMarketplaceEvent",
+            filter: {
+              module: "marketplace",
             },
           },
           {

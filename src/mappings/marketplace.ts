@@ -10,6 +10,7 @@ import {
   MarketplaceTokensOwners,
   MarketplaceUserLawyerVotes,
   RealEstateNft,
+  RealWorldAsset,
 } from "../types";
 
 import {
@@ -23,7 +24,7 @@ import {
   getStorageKeyArgs,
   getString,
   toJsonValue,
-  toUtf8String,
+  toStringValue,
 } from "./common";
 
 let marketplaceSyncInFlight: Promise<void> | null = null;
@@ -170,7 +171,7 @@ async function syncOfferFromEvent(
   const listingId = getListingId(args[0]);
   if (listingId == null) return;
 
-  const offeror = args[1] != null ? toUtf8String(args[1]) : undefined;
+  const offeror = toStringValue(args[1]);
   if (!offeror) return;
 
   await syncOngoingOffer(listingId, offeror, blockNumber);
@@ -183,9 +184,7 @@ async function syncTokenOwnerFromEvent(
   blockNumber: number,
 ): Promise<void> {
   const listingId = getListingId(args[listingIndex]);
-  const account = args[accountIndex] != null
-    ? toUtf8String(args[accountIndex])
-    : undefined;
+  const account = toStringValue(args[accountIndex]);
   if (listingId == null || !account) return;
 
   await syncTokenOwner(listingId, account, blockNumber);
@@ -208,8 +207,8 @@ async function syncLawyerVotingFromEvent(
   blockNumber: number,
 ): Promise<void> {
   const listingId = getListingId(args[0]);
-  const voter = args[1] != null ? toUtf8String(args[1]) : undefined;
-  const proposalId = args[7] != null ? toUtf8String(args[7]) : undefined;
+  const voter = toStringValue(args[1]);
+  const proposalId = toStringValue(args[7]);
 
   if (listingId != null) {
     await syncListingSpvProposal(listingId, blockNumber);
@@ -297,7 +296,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     "marketplace.ongoingLawyerVoting",
     blockNumber,
     async (args, opt) => {
-      const proposalId = args[0] != null ? toUtf8String(args[0]) : undefined;
+      const proposalId = toStringValue(args[0]);
       if (!proposalId) return;
       const listingId = listingProposalMap.get(proposalId);
       await upsertOngoingLawyerVoting(
@@ -314,8 +313,8 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     "marketplace.userLawyerVote",
     blockNumber,
     async (args, opt) => {
-      const proposalId = args[0] != null ? toUtf8String(args[0]) : undefined;
-      const voter = args[1] != null ? toUtf8String(args[1]) : undefined;
+      const proposalId = toStringValue(args[0]);
+      const voter = toStringValue(args[1]);
       if (!proposalId || !voter) return;
       const listingId = listingProposalMap.get(proposalId);
       await upsertUserLawyerVote(
@@ -333,7 +332,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     "marketplace.tokenOwner",
     blockNumber,
     async (args, opt) => {
-      const account = args[0] != null ? toUtf8String(args[0]) : undefined;
+      const account = toStringValue(args[0]);
       const listingId = getListingId(args[1]);
       if (!account || listingId == null) return;
       await upsertTokenOwner(listingId, account, opt, blockNumber);
@@ -346,7 +345,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     blockNumber,
     async (args, opt) => {
       const listingId = getListingId(args[0]);
-      const offeror = args[1] != null ? toUtf8String(args[1]) : undefined;
+      const offeror = toStringValue(args[1]);
       if (listingId == null || !offeror) return;
       await upsertOngoingOffer(listingId, offeror, opt, blockNumber);
     },
@@ -415,11 +414,13 @@ async function upsertOngoingObjectListing(
     collectionId,
     itemId,
   );
+  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
 
   const row = MarketplaceOngoingObjectListings.create({
     id,
     listingId,
     assetId: assetId ?? undefined,
+    realWorldAssetId,
     collectionId: collectionId ?? undefined,
     itemId: itemId ?? undefined,
     realEstateNftId,
@@ -488,6 +489,7 @@ async function upsertTokenListing(
     collectionId,
     itemId,
   );
+  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
 
   const row = MarketplaceTokenListings.create({
     id,
@@ -497,6 +499,7 @@ async function upsertTokenListing(
       ? String(getField(record, "token_price", "tokenPrice"))
       : undefined,
     assetId: assetId ?? undefined,
+    realWorldAssetId,
     collectionId: collectionId ?? undefined,
     itemId: itemId ?? undefined,
     realEstateNftId,
@@ -637,6 +640,8 @@ async function upsertUserLawyerVote(
   if (!record) return;
 
   const voteRecord = asRecord(record.vote);
+  const assetId = getNumber(getField(record, "asset_id", "assetId"));
+  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
 
   const row = MarketplaceUserLawyerVotes.create({
     id,
@@ -644,7 +649,8 @@ async function upsertUserLawyerVote(
     listingId,
     voter,
     vote: voteRecord ? Object.keys(voteRecord)[0] : getString(record.vote),
-    assetId: getNumber(getField(record, "asset_id", "assetId")),
+    assetId,
+    realWorldAssetId,
     power: getNumber(record.power),
     updatedBlock: blockNumber,
   });
@@ -700,18 +706,22 @@ async function upsertOngoingOffer(
   const record = asRecord(toJsonValue(opt.unwrap()));
   if (!record) return;
 
+  const paymentAssets = getNumber(
+    getField(record, "payment_assets", "paymentAssets"),
+  );
+  const paymentAssetId = await resolveRealWorldAssetId(paymentAssets);
+
   const row = MarketplaceOngoingOffers.create({
     id,
     listingId,
     offeror,
     tokenPrice: getField(record, "token_price", "tokenPrice") != null
-      ? toUtf8String(getField(record, "token_price", "tokenPrice"))
+      ? String(getField(record, "token_price", "tokenPrice"))
       : undefined,
     amount: getNumber(record.amount),
-    paymentAssets: getNumber(
-      getField(record, "payment_assets", "paymentAssets"),
-    ),
-    nonce: record.nonce != null ? toUtf8String(record.nonce) : undefined,
+    paymentAssets,
+    paymentAssetId,
+    nonce: toStringValue(record.nonce),
     updatedBlock: blockNumber,
   });
 
@@ -861,4 +871,14 @@ async function resolveRealEstateNftId(
   );
 
   return rows[0]?.id;
+}
+
+async function resolveRealWorldAssetId(
+  assetId: number | undefined,
+): Promise<string | undefined> {
+  if (assetId == null) return undefined;
+
+  const id = assetId.toString();
+  const row = await RealWorldAsset.get(id);
+  return row?.id;
 }

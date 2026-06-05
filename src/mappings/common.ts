@@ -71,7 +71,11 @@ export function toUtf8String(value: unknown): string {
   if (typeof value === "string") return hexToUtf8(value) ?? value;
   if (hasToUtf8(value)) {
     const toUtf8 = value.toUtf8;
-    return String(toUtf8.call(value));
+    try {
+      return String(toUtf8.call(value));
+    } catch {
+      return toHexString(value) ?? toStringValue(value) ?? "";
+    }
   }
   return String(value);
 }
@@ -92,6 +96,28 @@ export function toJsonValue(value: unknown): unknown {
     return (toJson as () => unknown).call(record);
   }
   return value;
+}
+
+export function toStringValue(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return String(value);
+  }
+
+  const record = asRecord(value);
+  if (
+    typeof record?.toString === "function" &&
+    record.toString !== Object.prototype.toString
+  ) {
+    return String(record.toString.call(value));
+  }
+
+  return undefined;
 }
 
 export function toNumber(value: unknown): number | undefined {

@@ -5,6 +5,7 @@ import { ensureBucketsSynced } from "./buckets";
 import { ensureDidsSynced } from "./did";
 import { ensureMarketplaceSynced } from "./marketplace";
 import { ensureRealEstateNftsSynced } from "./realEstateNfts";
+import { ensureRealWorldAssetsSynced } from "./realWorldAssets";
 
 let startupSyncInFlight: Promise<void> | null = null;
 let startupSynced = false;
@@ -20,6 +21,7 @@ export async function handleStartupSyncBlock(
       logger.info(`Block ${blockNumber}: startup storage sync begin`);
       await ensureDidsSynced(blockNumber);
       await ensureRealEstateNftsSynced(blockNumber);
+      await ensureRealWorldAssetsSynced(blockNumber);
       await ensureBucketsSynced(blockNumber);
       await ensureMarketplaceSynced(blockNumber);
       startupSynced = true;

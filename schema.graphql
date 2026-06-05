@@ -109,10 +109,38 @@ type RealEstateNft @entity {
   files: [String]
 }
 
+type RealWorldAsset @entity {
+  id: ID! # assetId as string
+  assetId: Int! @index
+  collectionId: Int @index
+  itemId: Int @index
+  realEstateNft: RealEstateNft
+  region: Int
+  location: String
+  price: String
+  tokenAmount: Int
+  spvCreated: Boolean
+  finalized: Boolean
+  ownerAccounts: [String]
+  updatedBlock: Int!
+
+  owners: [RealWorldAssetOwner!] @derivedFrom(field: "asset")
+}
+
+type RealWorldAssetOwner @entity {
+  id: ID! # assetId-account
+  asset: RealWorldAsset!
+  assetIdNumber: Int! @index
+  account: String! @index
+  tokenAmount: Int
+  updatedBlock: Int!
+}
+
 type MarketplaceOngoingObjectListings @entity {
   id: ID! # listingId as string
   listingId: Int! @index
   assetId: Int @index
+  realWorldAsset: RealWorldAsset
   collectionId: Int @index
   itemId: Int @index
   realEstateNft: RealEstateNft
@@ -150,6 +178,7 @@ type MarketplaceTokenListings @entity {
   seller: String
   tokenPrice: String
   assetId: Int @index
+  realWorldAsset: RealWorldAsset
   collectionId: Int @index
   itemId: Int @index
   realEstateNft: RealEstateNft
@@ -164,6 +193,7 @@ type MarketplaceOngoingOffers @entity {
   tokenPrice: String
   amount: Int
   paymentAssets: Int
+  paymentAsset: RealWorldAsset
   nonce: String
   updatedBlock: Int!
 }
@@ -192,6 +222,7 @@ type MarketplaceUserLawyerVotes @entity {
   voter: String! @index
   vote: String
   assetId: Int
+  realWorldAsset: RealWorldAsset
   power: Int
   updatedBlock: Int!
 }

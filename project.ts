@@ -47,7 +47,7 @@ const project: SubstrateProject = {
      * If you use a rate limited endpoint, adjust the --batch-size and --workers parameters
      * These settings can be found in your docker-compose.yaml, they will slow indexing but prevent your project being rate limited
      */
-    endpoint: process.env.ENDPOINT?.split(","),
+    endpoint: process.env.ENDPOINT!.split(","),
   },
   dataSources: [
     {
@@ -69,6 +69,10 @@ const project: SubstrateProject = {
             handler: "handleMarketplaceSyncBlock",
           },
           {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handleRealWorldAssetsSyncBlock",
+          },
+          {
             kind: SubstrateHandlerKind.Event,
             handler: "handleRealEstateNftsEvent",
             filter: {
@@ -80,6 +84,13 @@ const project: SubstrateProject = {
             handler: "handleMarketplaceEvent",
             filter: {
               module: "marketplace",
+            },
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handleRealWorldAssetsEvent",
+            filter: {
+              module: "realWorldAsset",
             },
           },
           {

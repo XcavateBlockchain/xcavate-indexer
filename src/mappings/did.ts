@@ -12,6 +12,7 @@ import {
   getStringArray,
   toNumber,
   toJsonValue,
+  toUtf8String,
 } from "./common";
 
 let didSyncInFlight: Promise<void> | null = null;
@@ -82,7 +83,7 @@ async function syncDidsFromStorage(blockNumber: number): Promise<void> {
   let synced = 0;
   for (const [storageKey, value] of entries) {
     const args = getStorageKeyArgs(storageKey);
-    const didId = args?.[0] != null ? String(args[0]) : undefined;
+    const didId = args?.[0] != null ? toUtf8String(args[0]) : undefined;
     if (!didId) continue;
 
     const storedOpt = asStorageValue(value);

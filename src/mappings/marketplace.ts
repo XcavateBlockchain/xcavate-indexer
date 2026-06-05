@@ -23,6 +23,7 @@ import {
   getStorageKeyArgs,
   getString,
   toJsonValue,
+  toUtf8String,
 } from "./common";
 
 let marketplaceSyncInFlight: Promise<void> | null = null;
@@ -169,7 +170,7 @@ async function syncOfferFromEvent(
   const listingId = getListingId(args[0]);
   if (listingId == null) return;
 
-  const offeror = args[1] != null ? String(args[1]) : undefined;
+  const offeror = args[1] != null ? toUtf8String(args[1]) : undefined;
   if (!offeror) return;
 
   await syncOngoingOffer(listingId, offeror, blockNumber);
@@ -183,7 +184,7 @@ async function syncTokenOwnerFromEvent(
 ): Promise<void> {
   const listingId = getListingId(args[listingIndex]);
   const account = args[accountIndex] != null
-    ? String(args[accountIndex])
+    ? toUtf8String(args[accountIndex])
     : undefined;
   if (listingId == null || !account) return;
 
@@ -207,8 +208,8 @@ async function syncLawyerVotingFromEvent(
   blockNumber: number,
 ): Promise<void> {
   const listingId = getListingId(args[0]);
-  const voter = args[1] != null ? String(args[1]) : undefined;
-  const proposalId = args[7] != null ? String(args[7]) : undefined;
+  const voter = args[1] != null ? toUtf8String(args[1]) : undefined;
+  const proposalId = args[7] != null ? toUtf8String(args[7]) : undefined;
 
   if (listingId != null) {
     await syncListingSpvProposal(listingId, blockNumber);
@@ -296,7 +297,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     "marketplace.ongoingLawyerVoting",
     blockNumber,
     async (args, opt) => {
-      const proposalId = args[0] != null ? String(args[0]) : undefined;
+      const proposalId = args[0] != null ? toUtf8String(args[0]) : undefined;
       if (!proposalId) return;
       const listingId = listingProposalMap.get(proposalId);
       await upsertOngoingLawyerVoting(
@@ -313,8 +314,8 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     "marketplace.userLawyerVote",
     blockNumber,
     async (args, opt) => {
-      const proposalId = args[0] != null ? String(args[0]) : undefined;
-      const voter = args[1] != null ? String(args[1]) : undefined;
+      const proposalId = args[0] != null ? toUtf8String(args[0]) : undefined;
+      const voter = args[1] != null ? toUtf8String(args[1]) : undefined;
       if (!proposalId || !voter) return;
       const listingId = listingProposalMap.get(proposalId);
       await upsertUserLawyerVote(
@@ -332,7 +333,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     "marketplace.tokenOwner",
     blockNumber,
     async (args, opt) => {
-      const account = args[0] != null ? String(args[0]) : undefined;
+      const account = args[0] != null ? toUtf8String(args[0]) : undefined;
       const listingId = getListingId(args[1]);
       if (!account || listingId == null) return;
       await upsertTokenOwner(listingId, account, opt, blockNumber);
@@ -345,7 +346,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     blockNumber,
     async (args, opt) => {
       const listingId = getListingId(args[0]);
-      const offeror = args[1] != null ? String(args[1]) : undefined;
+      const offeror = args[1] != null ? toUtf8String(args[1]) : undefined;
       if (listingId == null || !offeror) return;
       await upsertOngoingOffer(listingId, offeror, opt, blockNumber);
     },
@@ -704,13 +705,13 @@ async function upsertOngoingOffer(
     listingId,
     offeror,
     tokenPrice: getField(record, "token_price", "tokenPrice") != null
-      ? String(getField(record, "token_price", "tokenPrice"))
+      ? toUtf8String(getField(record, "token_price", "tokenPrice"))
       : undefined,
     amount: getNumber(record.amount),
     paymentAssets: getNumber(
       getField(record, "payment_assets", "paymentAssets"),
     ),
-    nonce: record.nonce != null ? String(record.nonce) : undefined,
+    nonce: record.nonce != null ? toUtf8String(record.nonce) : undefined,
     updatedBlock: blockNumber,
   });
 

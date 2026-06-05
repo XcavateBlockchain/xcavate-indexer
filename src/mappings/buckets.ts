@@ -103,7 +103,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     blockNumber,
     async (args) => {
       const bucketId = toNumber(args[0]);
-      const subjectId = args[1] != null ? String(args[1]) : undefined;
+      const subjectId = args[1] != null ? toUtf8String(args[1]) : undefined;
       if (bucketId == null || !subjectId) return;
       await upsertBucketContributor(bucketId, subjectId, blockNumber);
     },
@@ -115,7 +115,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     blockNumber,
     async (args) => {
       const bucketId = toNumber(args[0]);
-      const subjectId = args[1] != null ? String(args[1]) : undefined;
+      const subjectId = args[1] != null ? toUtf8String(args[1]) : undefined;
       if (bucketId == null || !subjectId) return;
       await upsertBucketAdmin(bucketId, subjectId, blockNumber);
     },
@@ -192,7 +192,7 @@ async function upsertBucketFromStorage(
     ? status?.asWritable ?? status?.writable ?? status?.Writable
     : undefined;
   const encryptionKey = writableValue != null
-    ? toHexString(writableValue) ?? String(writableValue)
+    ? toHexString(writableValue) ?? toUtf8String(writableValue)
     : undefined;
 
   const bucket = Bucket.create({

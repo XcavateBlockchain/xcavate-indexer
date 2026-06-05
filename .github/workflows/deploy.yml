@@ -42,5 +42,10 @@ jobs:
             printf '%s\n' "ENDPOINT=$ENDPOINT" "CHAIN_ID=$CHAIN_ID" > .env
             yarn install
             yarn build
+            docker compose down -v --remove-orphans
+            if [ -d .data ]; then
+              echo "Clearing indexer database so deployment starts a full reindex."
+              rm -rf .data || sudo rm -rf .data
+            fi
             docker compose pull
             docker compose up -d --remove-orphans

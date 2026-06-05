@@ -9,6 +9,7 @@ Indexed pallets:
 | `buckets`        | `Bucket`, `BucketContributor`, `BucketAdmin`, `Message` |
 | `did`            | `Did`                                                   |
 | `realEstateNfts` | `RealEstateNft`                                         |
+| `realWorldAsset` | `RealWorldAsset`, `RealWorldAssetOwner`                 |
 
 ## Run locally
 
@@ -16,6 +17,22 @@ Indexed pallets:
 npm install
 cp .env.example .env   # set ENDPOINT + CHAIN_ID
 npm run dev
+```
+
+## Run with Docker
+
+```bash
+cp .env.example .env   # set ENDPOINT + CHAIN_ID
+```
+
+```bash
+docker compose up --build
+```
+
+Stop and remove containers and volumes:
+
+```bash
+docker compose down -v
 ```
 
 GraphQL playground: <http://localhost:3000>.
@@ -72,6 +89,7 @@ src/mappings/
   buckets.ts       bucket/membership/message handlers + ensureBucket
   did.ts           DID handlers + key resolution
   realEstateNfts.ts Property handler
+  realWorldAssets.ts RWA asset + owner storage sync
   common.ts        utf8 / hex / IPFS helpers
 ```
 

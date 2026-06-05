@@ -1,22 +1,37 @@
-import type { SubstrateEvent } from "@subql/types";
+import type { SubstrateBlock, SubstrateEvent } from "@subql/types";
 
 import { Bucket, BucketAdmin, BucketContributor, Message } from "../types";
 
 import {
   asOption,
   asRecord,
+  asStorageValue,
   formatError,
   fetchIpfsText,
+  getStorageKeyArgs,
   toHexString,
+  toJsonValue,
   toNumber,
   toUtf8String,
 } from "./common";
+
+let bucketsSyncInFlight: Promise<void> | null = null;
+let bucketsSynced = false;
+
+export async function handleBucketsSyncBlock(
+  block: SubstrateBlock,
+): Promise<void> {
+  const blockNumber = block.block.header.number.toNumber();
+  await ensureBucketsSynced(blockNumber);
+}
 
 export async function handleBucketsEvent(
   event: SubstrateEvent,
 ): Promise<void> {
   const blockNumber = event.block.block.header.number.toNumber();
   const method = event.event.method;
+
+  await ensureBucketsSynced(blockNumber);
 
   logger.info(`Block ${blockNumber}: buckets.${method}`);
 
@@ -42,6 +57,259 @@ export async function handleBucketsEvent(
     case "MessageDeleted":
       return handleMessageDeleted(event, blockNumber);
   }
+}
+
+export async function ensureBucketsSynced(blockNumber: number): Promise<void> {
+  if (bucketsSynced) return;
+  bucketsSyncInFlight ??= syncBucketsFromStorage(blockNumber)
+    .then(() => {
+      bucketsSynced = true;
+    })
+    .catch((e) => {
+      logger.error(
+        `Block ${blockNumber}: buckets storage sync failed — ${formatError(e)}`,
+      );
+    })
+    .finally(() => {
+      bucketsSyncInFlight = null;
+    });
+  await bucketsSyncInFlight;
+}
+
+async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
+  logger.info(`Block ${blockNumber}: syncing buckets storage`);
+
+  const pallet = asRecord(api.query?.buckets);
+  if (!pallet) {
+    logger.error(`Block ${blockNumber}: buckets pallet unavailable`);
+    return;
+  }
+
+  await syncBucketStorageEntries(
+    pallet.buckets,
+    "buckets.buckets",
+    blockNumber,
+    async (args, value) => {
+      const namespaceId = toNumber(args[0]);
+      const bucketId = toNumber(args[1]);
+      if (namespaceId == null || bucketId == null) return;
+      await upsertBucketFromStorage(namespaceId, bucketId, value, blockNumber);
+    },
+  );
+
+  await syncBucketStorageEntries(
+    pallet.contributors,
+    "buckets.contributors",
+    blockNumber,
+    async (args) => {
+      const bucketId = toNumber(args[0]);
+      const subjectId = args[1] != null ? toUtf8String(args[1]) : undefined;
+      if (bucketId == null || !subjectId) return;
+      await upsertBucketContributor(bucketId, subjectId, blockNumber);
+    },
+  );
+
+  await syncBucketStorageEntries(
+    pallet.admins,
+    "buckets.admins",
+    blockNumber,
+    async (args) => {
+      const bucketId = toNumber(args[0]);
+      const subjectId = args[1] != null ? toUtf8String(args[1]) : undefined;
+      if (bucketId == null || !subjectId) return;
+      await upsertBucketAdmin(bucketId, subjectId, blockNumber);
+    },
+  );
+
+  await syncBucketStorageEntries(
+    pallet.messages,
+    "buckets.messages",
+    blockNumber,
+    async (args, value) => {
+      const bucketId = toNumber(args[0]);
+      const messageId = toNumber(args[1]);
+      if (bucketId == null || messageId == null) return;
+      await upsertMessageFromStorage(bucketId, messageId, value, blockNumber);
+    },
+  );
+
+  logger.info(`Block ${blockNumber}: buckets storage sync complete`);
+}
+
+async function syncBucketStorageEntries(
+  storage: unknown,
+  storageName: string,
+  blockNumber: number,
+  handle: (args: unknown[], value: unknown) => Promise<void>,
+): Promise<void> {
+  const target = (typeof storage === "function" ? storage : asRecord(storage)) as
+    | { entries?: () => Promise<unknown> }
+    | undefined;
+  const entriesFn = target?.entries;
+  if (typeof entriesFn !== "function") {
+    logger.warn(`Block ${blockNumber}: ${storageName}.entries unavailable`);
+    return;
+  }
+
+  const entries = await entriesFn.call(target);
+  if (!Array.isArray(entries) || entries.length === 0) {
+    logger.info(`Block ${blockNumber}: ${storageName} storage entries=0`);
+    return;
+  }
+
+  let synced = 0;
+  for (const [storageKey, rawValue] of entries) {
+    const args = getStorageKeyArgs(storageKey);
+    if (!args) continue;
+
+    const value = asStorageValue(rawValue);
+    if (!value.isSome) continue;
+
+    await handle(args, value.unwrap());
+    synced += 1;
+  }
+
+  logger.info(
+    `Block ${blockNumber}: ${storageName} storage entries=${entries.length}, handled=${synced}`,
+  );
+}
+
+async function upsertBucketFromStorage(
+  namespaceId: number,
+  bucketId: number,
+  storedValue: unknown,
+  blockNumber: number,
+): Promise<void> {
+  const raw = asRecord(storedValue);
+  const json = asRecord(toJsonValue(storedValue));
+  const metadata = asRecord(raw?.metadata) ?? asRecord(json?.metadata);
+  const status = asRecord(raw?.status) ?? asRecord(json?.status);
+  const existing = await Bucket.get(bucketId.toString());
+
+  const isWritable = status?.isWritable === true || status?.writable != null ||
+    status?.Writable != null;
+  const writableValue = isWritable
+    ? status?.asWritable ?? status?.writable ?? status?.Writable
+    : undefined;
+  const encryptionKey = writableValue != null
+    ? toHexString(writableValue) ?? toUtf8String(writableValue)
+    : undefined;
+
+  const bucket = Bucket.create({
+    id: bucketId.toString(),
+    namespaceId,
+    bucketId,
+    creator: existing?.creator,
+    name: metadata?.name != null ? toUtf8String(metadata.name) : existing?.name,
+    category: metadata?.category != null
+      ? toUtf8String(metadata.category)
+      : existing?.category,
+    isWritable,
+    encryptionKey,
+    createdBlock:
+      existing?.createdBlock ?? toNumber(metadata?.createdAt) ?? blockNumber,
+  });
+
+  await bucket.save();
+}
+
+async function upsertBucketContributor(
+  bucketId: number,
+  subjectId: string,
+  blockNumber: number,
+): Promise<void> {
+  const bucket = await Bucket.get(bucketId.toString());
+  if (!bucket) {
+    logger.warn(
+      `Block ${blockNumber}: contributor ${subjectId} skipped; bucket ${bucketId} missing`,
+    );
+    return;
+  }
+
+  const id = `${bucketId}-${subjectId}`;
+  const existing = await BucketContributor.get(id);
+  const row = BucketContributor.create({
+    id,
+    bucketId: bucketId.toString(),
+    subjectId,
+    addedBlock: existing?.addedBlock ?? blockNumber,
+  });
+  await row.save();
+}
+
+async function upsertBucketAdmin(
+  bucketId: number,
+  subjectId: string,
+  blockNumber: number,
+): Promise<void> {
+  const bucket = await Bucket.get(bucketId.toString());
+  if (!bucket) {
+    logger.warn(
+      `Block ${blockNumber}: admin ${subjectId} skipped; bucket ${bucketId} missing`,
+    );
+    return;
+  }
+
+  const id = `${bucketId}-${subjectId}`;
+  const existing = await BucketAdmin.get(id);
+  const row = BucketAdmin.create({
+    id,
+    bucketId: bucketId.toString(),
+    subjectId,
+    addedBlock: existing?.addedBlock ?? blockNumber,
+  });
+  await row.save();
+}
+
+async function upsertMessageFromStorage(
+  bucketId: number,
+  messageId: number,
+  storedValue: unknown,
+  blockNumber: number,
+): Promise<void> {
+  const bucket = await Bucket.get(bucketId.toString());
+  if (!bucket) {
+    logger.warn(
+      `Block ${blockNumber}: message ${bucketId}-${messageId} skipped; bucket missing`,
+    );
+    return;
+  }
+
+  const raw = asRecord(storedValue);
+  const json = asRecord(toJsonValue(storedValue));
+  const message = raw ?? json;
+  const metadata = asRecord(raw?.metadata) ?? asRecord(json?.metadata);
+  if (!message || !metadata) return;
+
+  const id = `${bucketId}-${messageId}`;
+  const existing = await Message.get(id);
+  const tagOpt = asOption(message.tag);
+  const tag = tagOpt?.isSome ? toUtf8String(tagOpt.unwrap()) : undefined;
+  const contentType = toUtf8String(metadata.contentType);
+  const reference = toUtf8String(message.reference);
+  const contentHash = toHexString(metadata.contentHash);
+  if (!contentHash) return;
+
+  let ipfsContent = existing?.ipfsContent;
+  if (!ipfsContent && contentType.startsWith("text/plain")) {
+    ipfsContent = await fetchIpfsText(reference);
+  }
+
+  const row = Message.create({
+    id,
+    bucketId: bucketId.toString(),
+    messageId,
+    contributor: existing?.contributor ?? "unknown",
+    reference,
+    tag,
+    description: toUtf8String(metadata.description),
+    contentType,
+    contentHash,
+    createdBlock: toNumber(metadata.createdAt) ?? existing?.createdBlock ?? blockNumber,
+    ipfsContent,
+  });
+
+  await row.save();
 }
 
 // Saves a new Bucket row. Handles both the OLD 3-arg and NEW 4-arg event shapes.

@@ -108,3 +108,135 @@ type RealEstateNft @entity {
   # files (S3 object keys; app generates fresh presigned URLs on demand)
   files: [String]
 }
+
+type RealWorldAsset @entity {
+  id: ID! # assetId as string
+  assetId: Int! @index
+  collectionId: Int @index
+  itemId: Int @index
+  realEstateNft: RealEstateNft
+  region: Int
+  location: String
+  price: String
+  tokenAmount: Int
+  spvCreated: Boolean
+  finalized: Boolean
+  ownerAccounts: [String]
+  updatedBlock: Int!
+
+  owners: [RealWorldAssetOwner!] @derivedFrom(field: "asset")
+}
+
+type RealWorldAssetOwner @entity {
+  id: ID! # assetId-account
+  asset: RealWorldAsset!
+  assetIdNumber: Int! @index
+  account: String! @index
+  tokenAmount: Int
+  updatedBlock: Int!
+}
+
+type MarketplaceOngoingObjectListings @entity {
+  id: ID! # listingId as string
+  listingId: Int! @index
+  assetId: Int @index
+  realWorldAsset: RealWorldAsset
+  collectionId: Int @index
+  itemId: Int @index
+  realEstateNft: RealEstateNft
+  realEstateDeveloper: String
+  tokenPrice: String
+  tokenAmount: Int
+  listedTokenAmount: Int
+  taxPaidByDeveloper: Boolean
+  tax: Int
+  listingExpiry: Int
+  claimExpiry: Int
+  relistCount: Int
+  unclaimedTokenAmount: Int
+  collectedFunds: String
+  collectedTax: String
+  collectedFees: String
+  investorFunds: String
+  updatedBlock: Int!
+}
+
+type MarketplaceTokensOwners @entity {
+  id: ID! # listingId-account
+  listingId: Int! @index
+  account: String! @index
+  tokenAmount: Int
+  paidFunds: String
+  paidTax: String
+  relistCount: Int
+  updatedBlock: Int!
+}
+
+type MarketplaceTokenListings @entity {
+  id: ID! # listingId as string
+  listingId: Int! @index
+  seller: String
+  tokenPrice: String
+  assetId: Int @index
+  realWorldAsset: RealWorldAsset
+  collectionId: Int @index
+  itemId: Int @index
+  realEstateNft: RealEstateNft
+  amount: Int
+  updatedBlock: Int!
+}
+
+type MarketplaceOngoingOffers @entity {
+  id: ID! # listingId-offeror
+  listingId: Int! @index
+  offeror: String! @index
+  tokenPrice: String
+  amount: Int
+  paymentAssets: Int
+  paymentAsset: RealWorldAsset
+  nonce: String
+  updatedBlock: Int!
+}
+
+type MarketplaceListingSpvProposals @entity {
+  id: ID! # listingId as string
+  listingId: Int! @index
+  proposalId: String
+  updatedBlock: Int!
+}
+
+type MarketplaceOngoingLawyerVotings @entity {
+  id: ID! # proposalId as string
+  proposalId: String! @index
+  listingId: Int @index
+  yesVotingPower: Int
+  noVotingPower: Int
+  abstainVotingPower: Int
+  updatedBlock: Int!
+}
+
+type MarketplaceUserLawyerVotes @entity {
+  id: ID! # proposalId-voter
+  proposalId: String! @index
+  listingId: Int @index
+  voter: String! @index
+  vote: String
+  assetId: Int
+  realWorldAsset: RealWorldAsset
+  power: Int
+  updatedBlock: Int!
+}
+
+type MarketplacePropertyLawyers @entity {
+  id: ID! # listingId as string
+  listingId: Int! @index
+  realEstateDeveloperLawyer: String
+  spvLawyer: String
+  realEstateDeveloperStatus: String
+  spvStatus: String
+  realEstateDeveloperLawyerCosts: String
+  spvLawyerCosts: String
+  legalProcessExpiry: Int
+  secondAttempt: Boolean
+  updatedBlock: Int!
+}

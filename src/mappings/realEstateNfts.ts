@@ -3,11 +3,12 @@ import type { SubstrateBlock, SubstrateEvent } from "@subql/types";
 import { RealEstateNft } from "../types";
 
 import {
-  asOption,
   asRecord,
+  asStorageValue,
   formatError,
   getBoolean,
   getNumber,
+  getStorageKeyArgs,
   getString,
   getStringArray,
   parseJson,
@@ -98,7 +99,9 @@ async function handleBurned(
   }
 }
 
-async function ensureRealEstateNftsSynced(blockNumber: number): Promise<void> {
+export async function ensureRealEstateNftsSynced(
+  blockNumber: number,
+): Promise<void> {
   if (realEstateNftsSynced) return;
   realEstateNftsSyncInFlight ??= syncRealEstateNftsFromStorage(blockNumber)
     .then(() => {
@@ -113,12 +116,6 @@ async function ensureRealEstateNftsSynced(blockNumber: number): Promise<void> {
       realEstateNftsSyncInFlight = null;
     });
   await realEstateNftsSyncInFlight;
-}
-
-function getStorageKeyArgs(storageKey: unknown): unknown[] | undefined {
-  const record = asRecord(storageKey);
-  const args = record?.args;
-  return Array.isArray(args) ? args : undefined;
 }
 
 async function syncRealEstateNftsFromStorage(blockNumber: number): Promise<void> {
@@ -158,7 +155,7 @@ async function syncRealEstateNftsFromStorage(blockNumber: number): Promise<void>
     const collection = String(args[0]);
     const item = String(args[1]);
 
-    const opt = asOption(metadataOpt);
+    const opt = asStorageValue(metadataOpt);
     if (!opt?.isSome) continue;
 
     const metadata = asRecord(opt.unwrap());

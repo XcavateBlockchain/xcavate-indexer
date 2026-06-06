@@ -74,7 +74,13 @@ Schema change → pick *Reindex*. Code-only change → *Continue*.
 
 ## Notes
 
-- `startBlock` only applies on a fresh DB. On restart the indexer resumes from `_metadata.lastProcessedHeight`. To re-index from scratch: `sudo rm -rf .data && docker compose down -v`.
+- `startBlock` only applies on a fresh DB. On restart the indexer resumes from `_metadata.lastProcessedHeight`. To re-index from scratch:
+  - Linux/macOS: `docker compose down -v && rm -rf .data`
+  - Windows PowerShell: `docker compose down -v; if (Test-Path .data) { Remove-Item -Recurse -Force .data }`
+- If logs show `getaddrinfo ENOTFOUND postgres`, the `postgres` service is down or restarting. Recover with:
+  - `docker compose up -d postgres`
+  - `docker compose restart subquery-node graphql-engine`
+  - If Postgres logs include `pg_filenode.map` errors, run a clean re-index command above.
 - `ensureBucket` (in `src/mappings/buckets.ts`) backfills missing parent Bucket rows from chain storage. Without it, child FK inserts would crash the worker when starting after a `BucketCreated` event. Backfilled rows have `creator = null` and an approximate `createdBlock`.
 - IPFS content is fetched only for `contentType` starting with `text/plain`. Failures are silent and never retried — re-index to recover.
 - Gateway hardcoded in `src/mappings/common.ts`.

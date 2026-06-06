@@ -159,11 +159,20 @@ type MarketplaceOngoingObjectListings @entity {
   collectedFees: String
   investorFunds: String
   updatedBlock: Int!
+
+  tokenOwners: [MarketplaceTokensOwners!] @derivedFrom(field: "ongoingObjectListing")
+  tokenListings: [MarketplaceTokenListings!] @derivedFrom(field: "ongoingObjectListing")
+  ongoingOffers: [MarketplaceOngoingOffers!] @derivedFrom(field: "ongoingObjectListing")
+  listingSpvProposals: [MarketplaceListingSpvProposals!] @derivedFrom(field: "ongoingObjectListing")
+  ongoingLawyerVotings: [MarketplaceOngoingLawyerVotings!] @derivedFrom(field: "ongoingObjectListing")
+  propertyLawyers: [MarketplacePropertyLawyers!] @derivedFrom(field: "ongoingObjectListing")
+  userLawyerVotes: [MarketplaceUserLawyerVotes!] @derivedFrom(field: "ongoingObjectListing")
 }
 
 type MarketplaceTokensOwners @entity {
   id: ID! # listingId-account
   listingId: Int! @index
+  ongoingObjectListing: MarketplaceOngoingObjectListings
   account: String! @index
   tokenAmount: Int
   paidFunds: String
@@ -175,6 +184,7 @@ type MarketplaceTokensOwners @entity {
 type MarketplaceTokenListings @entity {
   id: ID! # listingId as string
   listingId: Int! @index
+  ongoingObjectListing: MarketplaceOngoingObjectListings
   seller: String
   tokenPrice: String
   assetId: Int @index
@@ -189,6 +199,7 @@ type MarketplaceTokenListings @entity {
 type MarketplaceOngoingOffers @entity {
   id: ID! # listingId-offeror
   listingId: Int! @index
+  ongoingObjectListing: MarketplaceOngoingObjectListings
   offeror: String! @index
   tokenPrice: String
   amount: Int
@@ -201,6 +212,7 @@ type MarketplaceOngoingOffers @entity {
 type MarketplaceListingSpvProposals @entity {
   id: ID! # listingId as string
   listingId: Int! @index
+  ongoingObjectListing: MarketplaceOngoingObjectListings
   proposalId: String
   updatedBlock: Int!
 }
@@ -209,6 +221,7 @@ type MarketplaceOngoingLawyerVotings @entity {
   id: ID! # proposalId as string
   proposalId: String! @index
   listingId: Int @index
+  ongoingObjectListing: MarketplaceOngoingObjectListings
   yesVotingPower: Int
   noVotingPower: Int
   abstainVotingPower: Int
@@ -219,6 +232,7 @@ type MarketplaceUserLawyerVotes @entity {
   id: ID! # proposalId-voter
   proposalId: String! @index
   listingId: Int @index
+  ongoingObjectListing: MarketplaceOngoingObjectListings
   voter: String! @index
   vote: String
   assetId: Int
@@ -230,6 +244,7 @@ type MarketplaceUserLawyerVotes @entity {
 type MarketplacePropertyLawyers @entity {
   id: ID! # listingId as string
   listingId: Int! @index
+  ongoingObjectListing: MarketplaceOngoingObjectListings
   realEstateDeveloperLawyer: String
   spvLawyer: String
   realEstateDeveloperStatus: String

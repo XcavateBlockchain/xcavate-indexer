@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/pg-Dockerfile
+    restart: unless-stopped
     ports:
       - 5433:5432
     volumes:

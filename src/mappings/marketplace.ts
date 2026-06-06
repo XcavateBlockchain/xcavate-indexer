@@ -494,6 +494,7 @@ async function upsertTokenListing(
   const row = MarketplaceTokenListings.create({
     id,
     listingId,
+    ongoingObjectListingId: id,
     seller: getString(record.seller),
     tokenPrice: getField(record, "token_price", "tokenPrice") != null
       ? String(getField(record, "token_price", "tokenPrice"))
@@ -528,6 +529,7 @@ async function upsertPropertyLawyer(
   const row = MarketplacePropertyLawyers.create({
     id,
     listingId,
+    ongoingObjectListingId: id,
     realEstateDeveloperLawyer: getString(
       getField(
         record,
@@ -580,6 +582,7 @@ async function upsertListingSpvProposal(
   const row = MarketplaceListingSpvProposals.create({
     id,
     listingId,
+    ongoingObjectListingId: id,
     proposalId,
     updatedBlock: blockNumber,
   });
@@ -607,6 +610,7 @@ async function upsertOngoingLawyerVoting(
     id,
     proposalId,
     listingId,
+    ongoingObjectListingId: listingId != null ? listingId.toString() : undefined,
     yesVotingPower: getNumber(
       getField(record, "yes_voting_power", "yesVotingPower"),
     ),
@@ -647,6 +651,7 @@ async function upsertUserLawyerVote(
     id,
     proposalId,
     listingId,
+    ongoingObjectListingId: listingId != null ? listingId.toString() : undefined,
     voter,
     vote: voteRecord ? Object.keys(voteRecord)[0] : getString(record.vote),
     assetId,
@@ -677,6 +682,7 @@ async function upsertTokenOwner(
   const row = MarketplaceTokensOwners.create({
     id,
     listingId,
+    ongoingObjectListingId: listingId.toString(),
     account,
     tokenAmount: getNumber(getField(record, "token_amount", "tokenAmount")),
     paidFunds: stringifyJson(
@@ -714,6 +720,7 @@ async function upsertOngoingOffer(
   const row = MarketplaceOngoingOffers.create({
     id,
     listingId,
+    ongoingObjectListingId: listingId.toString(),
     offeror,
     tokenPrice: getField(record, "token_price", "tokenPrice") != null
       ? String(getField(record, "token_price", "tokenPrice"))

@@ -52,7 +52,7 @@ const project: SubstrateProject = {
   dataSources: [
     {
       kind: SubstrateDatasourceKind.Runtime,
-      startBlock: 2260000,
+      startBlock: 2322563,
       mapping: {
         file: "./dist/index.js",
         handlers: [

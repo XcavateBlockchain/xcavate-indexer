@@ -220,10 +220,10 @@ export async function fetchIpfsText(cid: string): Promise<string | undefined> {
   }
 }
 
-let _cryptoReady: Promise<void> | null = null;
-async function ensureCryptoReady(): Promise<void> {
+let _cryptoReady: Promise<boolean> | null = null;
+async function ensureCryptoReady(): Promise<boolean> {
   _cryptoReady ??= cryptoWaitReady();
-  await _cryptoReady;
+  return _cryptoReady;
 }
 
 // Convert various codec representations (hex, bytes, SS58) to an SS58 address string.

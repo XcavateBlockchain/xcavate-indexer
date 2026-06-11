@@ -1,4 +1,6 @@
 import { request } from "https";
+import { hexToU8a, isHex } from "@polkadot/util";
+import { encodeAddress, decodeAddress, cryptoWaitReady } from "@polkadot/util-crypto";
 import { URL } from "url";
 
 type RecordLike = Record<string, unknown>;
@@ -216,4 +218,45 @@ export async function fetchIpfsText(cid: string): Promise<string | undefined> {
     logger.warn(`IPFS fetch error ${cid}: ${formatError(e)}`);
     return undefined;
   }
+}
+
+let _cryptoReady: Promise<void> | null = null;
+async function ensureCryptoReady(): Promise<void> {
+  _cryptoReady ??= cryptoWaitReady();
+  await _cryptoReady;
+}
+
+// Convert various codec representations (hex, bytes, SS58) to an SS58 address string.
+// Returns undefined when conversion fails.
+export async function toSs58(value: unknown, prefix = 0): Promise<string | undefined> {
+  if (value == null) return undefined;
+
+  // Prefer direct hex representations first.
+  const hex = toHexString(value);
+  try {
+    await ensureCryptoReady();
+    if (typeof hex === "string" && hex.length > 0) {
+      try {
+        return encodeAddress(hexToU8a(hex), prefix);
+      } catch {
+        // fallthrough to other strategies
+      }
+    }
+
+    // Try treating the value as a string (might already be SS58 or a plain hex string)
+    const s = toStringValue(value) ?? toUtf8String(value);
+    if (typeof s === "string") {
+      try {
+        if (isHex(s)) return encodeAddress(hexToU8a(s), prefix);
+        // If it's already an SS58 address, decode and re-encode with requested prefix
+        const pub = decodeAddress(s);
+        return encodeAddress(pub, prefix);
+      } catch {
+        // ignore and fallthrough
+      }
+    }
+  } catch {
+    // crypto not available or failed — return undefined
+  }
+  return undefined;
 }

@@ -13,6 +13,7 @@ import {
   toJsonValue,
   toNumber,
   toUtf8String,
+  toSs58,
 } from "./common";
 
 let bucketsSyncInFlight: Promise<void> | null = null;
@@ -103,9 +104,9 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     blockNumber,
     async (args) => {
       const bucketId = toNumber(args[0]);
-      const subjectId = args[1] != null ? toUtf8String(args[1]) : undefined;
-      if (bucketId == null || !subjectId) return;
-      await upsertBucketContributor(bucketId, subjectId, blockNumber);
+      const subjectRaw = args[1];
+      if (bucketId == null || subjectRaw == null) return;
+      await upsertBucketContributor(bucketId, subjectRaw, blockNumber);
     },
   );
 
@@ -115,9 +116,9 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     blockNumber,
     async (args) => {
       const bucketId = toNumber(args[0]);
-      const subjectId = args[1] != null ? toUtf8String(args[1]) : undefined;
-      if (bucketId == null || !subjectId) return;
-      await upsertBucketAdmin(bucketId, subjectId, blockNumber);
+      const subjectRaw = args[1];
+      if (bucketId == null || subjectRaw == null) return;
+      await upsertBucketAdmin(bucketId, subjectRaw, blockNumber);
     },
   );
 
@@ -215,16 +216,17 @@ async function upsertBucketFromStorage(
 
 async function upsertBucketContributor(
   bucketId: number,
-  subjectId: string,
+  subjectRaw: unknown,
   blockNumber: number,
 ): Promise<void> {
   const bucket = await Bucket.get(bucketId.toString());
   if (!bucket) {
     logger.warn(
-      `Block ${blockNumber}: contributor ${subjectId} skipped; bucket ${bucketId} missing`,
+      `Block ${blockNumber}: contributor ${String(subjectRaw)} skipped; bucket ${bucketId} missing`,
     );
     return;
   }
+  const subjectId = (await toSs58(subjectRaw, 0)) ?? toUtf8String(subjectRaw) ?? String(subjectRaw);
 
   const id = `${bucketId}-${subjectId}`;
   const existing = await BucketContributor.get(id);
@@ -239,16 +241,17 @@ async function upsertBucketContributor(
 
 async function upsertBucketAdmin(
   bucketId: number,
-  subjectId: string,
+  subjectRaw: unknown,
   blockNumber: number,
 ): Promise<void> {
   const bucket = await Bucket.get(bucketId.toString());
   if (!bucket) {
     logger.warn(
-      `Block ${blockNumber}: admin ${subjectId} skipped; bucket ${bucketId} missing`,
+      `Block ${blockNumber}: admin ${String(subjectRaw)} skipped; bucket ${bucketId} missing`,
     );
     return;
   }
+  const subjectId = (await toSs58(subjectRaw, 0)) ?? toUtf8String(subjectRaw) ?? String(subjectRaw);
 
   const id = `${bucketId}-${subjectId}`;
   const existing = await BucketAdmin.get(id);
@@ -355,7 +358,7 @@ async function handleBucketCreated(
 
   const creatorOpt = asOption(creatorArg);
   const creator = creatorOpt?.isSome
-    ? String(creatorOpt.unwrap())
+    ? (await toSs58(creatorOpt.unwrap(), 0)) ?? String(creatorOpt.unwrap())
     : undefined;
 
   const bucket = Bucket.create({
@@ -547,7 +550,7 @@ async function handleContributorAdded(
     event.event.data as unknown[];
   const namespaceId = Number(String(namespaceArg));
   const bucketId = Number(String(bucketArg));
-  const subjectId = String(contributorArg);
+  const subjectId = (await toSs58(contributorArg, 0)) ?? String(contributorArg);
   const id = `${bucketId}-${subjectId}`;
 
   await ensureBucket(namespaceId, bucketId, blockNumber);
@@ -571,7 +574,7 @@ async function handleContributorRemoved(
 ): Promise<void> {
   const [, bucketArg, contributorArg] = event.event.data as unknown[];
   const bucketId = Number(String(bucketArg));
-  const subjectId = String(contributorArg);
+  const subjectId = (await toSs58(contributorArg, 0)) ?? String(contributorArg);
   const id = `${bucketId}-${subjectId}`;
 
   const existing = await BucketContributor.get(id);
@@ -596,7 +599,7 @@ async function handleAdminAdded(
   const [namespaceArg, bucketArg, adminArg] = event.event.data as unknown[];
   const namespaceId = Number(String(namespaceArg));
   const bucketId = Number(String(bucketArg));
-  const subjectId = String(adminArg);
+  const subjectId = (await toSs58(adminArg, 0)) ?? String(adminArg);
   const id = `${bucketId}-${subjectId}`;
 
   await ensureBucket(namespaceId, bucketId, blockNumber);
@@ -620,7 +623,7 @@ async function handleAdminRemoved(
 ): Promise<void> {
   const [, bucketArg, adminArg] = event.event.data as unknown[];
   const bucketId = Number(String(bucketArg));
-  const subjectId = String(adminArg);
+  const subjectId = (await toSs58(adminArg, 0)) ?? String(adminArg);
   const id = `${bucketId}-${subjectId}`;
 
   const existing = await BucketAdmin.get(id);
@@ -657,13 +660,13 @@ async function handleNewMessage(
     bucketId = Number(String(args[1]));
     messageId = Number(String(args[2]));
     messageStruct = asRecord(args[3]);
-    contributor = String(args[4]);
+    contributor = (await toSs58(args[4], 0)) ?? String(args[4]);
   } else {
     // OLD event shape has no namespace_id; Xcavate has only ever used 0.
     namespaceId = 0;
     bucketId = Number(String(args[0]));
     messageId = Number(String(args[1]));
-    contributor = String(args[2]);
+    contributor = (await toSs58(args[2], 0)) ?? String(args[2]);
   }
 
   const id = `${bucketId}-${messageId}`;

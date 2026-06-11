@@ -38,6 +38,10 @@
     "eslint-plugin-import": "latest",
     "typescript": "latest"
   },
+  "dependencies": {
+    "@polkadot/util": "^12.0.0",
+    "@polkadot/util-crypto": "^12.0.0"
+  },
   "resolutions": {
     "ipfs-unixfs": "6.0.6"
   }

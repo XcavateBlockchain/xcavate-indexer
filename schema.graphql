@@ -183,7 +183,7 @@ type MarketplaceShareListings @entity {
   itemId: Int @index
   realEstateNft: RealEstateNft
   amount: Int
-  updatedBlock: Int!
+  updatedBlock: Int
 }
 
 type MarketplaceOngoingOffers @entity {

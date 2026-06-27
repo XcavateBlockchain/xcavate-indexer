@@ -165,8 +165,8 @@ type MarketplaceOngoingObjectListings @entity {
   investorFunds: String
   updatedBlock: Int!
 
-  tokenOwners: [MarketplaceTokensOwners!] @derivedFrom(field: "ongoingObjectListing")
-  tokenListings: [MarketplaceTokenListings!] @derivedFrom(field: "ongoingObjectListing")
+  shareOwners: [MarketplaceShareOwners!] @derivedFrom(field: "ongoingObjectListing")
+  shareListings: [MarketplaceShareListings!] @derivedFrom(field: "ongoingObjectListing")
   ongoingOffers: [MarketplaceOngoingOffers!] @derivedFrom(field: "ongoingObjectListing")
   listingSpvProposals: [MarketplaceListingSpvProposals!] @derivedFrom(field: "ongoingObjectListing")
   ongoingLawyerVotings: [MarketplaceOngoingLawyerVotings!] @derivedFrom(field: "ongoingObjectListing")
@@ -174,10 +174,10 @@ type MarketplaceOngoingObjectListings @entity {
   userLawyerVotes: [MarketplaceUserLawyerVotes!] @derivedFrom(field: "ongoingObjectListing")
 }
 
-type MarketplaceTokensOwners @entity {
+type MarketplaceShareOwners @entity {
   id: ID! # listingId-account
   listingId: Int! @index
-  ongoingObjectListing: MarketplaceOngoingObjectListings
+  ongoingObjectListingId: String!
   account: String! @index
   tokenAmount: Int
   paidFunds: String
@@ -186,19 +186,19 @@ type MarketplaceTokensOwners @entity {
   updatedBlock: Int!
 }
 
-type MarketplaceTokenListings @entity {
-  id: ID! # listingId as string
-  listingId: Int! @index
-  ongoingObjectListing: MarketplaceOngoingObjectListings
+type MarketplaceShareListings @entity {
+  id: ID!
+  listingId: Int!
+  ongoingObjectListingId: String!
   seller: String
   tokenPrice: String
-  assetId: Int @index
-  realWorldAsset: RealWorldAsset
-  collectionId: Int @index
-  itemId: Int @index
-  realEstateNft: RealEstateNft
+  assetId: Int
+  realWorldAssetId: String
+  collectionId: Int
+  itemId: Int
+  realEstateNftId: String
   amount: Int
-  updatedBlock: Int!
+  updatedBlock: Int
 }
 
 type MarketplaceOngoingOffers @entity {

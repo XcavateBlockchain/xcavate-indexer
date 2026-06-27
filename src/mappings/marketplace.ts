@@ -6,8 +6,8 @@ import {
   MarketplaceOngoingObjectListings,
   MarketplaceOngoingOffers,
   MarketplacePropertyLawyers,
-  MarketplaceTokenListings,
-  MarketplaceTokensOwners,
+  MarketplaceShareListings,
+  MarketplaceShareOwners,
   MarketplaceUserLawyerVotes,
   RealEstateNft,
   RealWorldAsset,
@@ -255,8 +255,8 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
   );
 
   await syncEntries(
-    pallet.TokenListings ?? pallet.tokenListings,
-    "marketplace.tokenListings",
+    pallet.ShareListings ?? pallet.shareListings,
+    "marketplace.shareListings",
     blockNumber,
     async (args, opt) => {
       const listingId = getListingId(args[0]);
@@ -328,8 +328,8 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
   );
 
   await syncEntries(
-    pallet.TokenOwner ?? pallet.tokenOwner,
-    "marketplace.tokenOwner",
+    pallet.ShareOwner ?? pallet.shareOwner,
+    "marketplace.shareOwner",
     blockNumber,
     async (args, opt) => {
       const account = toStringValue(args[0]);
@@ -471,8 +471,8 @@ async function upsertTokenListing(
 ): Promise<void> {
   const id = listingId.toString();
   if (!opt?.isSome) {
-    const existing = await MarketplaceTokenListings.get(id);
-    if (existing) await MarketplaceTokenListings.remove(id);
+    const existing = await MarketplaceShareListings.get(id);
+    if (existing) await MarketplaceShareListings.remove(id);
     return;
   }
 
@@ -491,7 +491,7 @@ async function upsertTokenListing(
   );
   const realWorldAssetId = await resolveRealWorldAssetId(assetId);
 
-  const row = MarketplaceTokenListings.create({
+  const row = MarketplaceShareListings.create({
     id,
     listingId,
     ongoingObjectListingId: id,
@@ -671,15 +671,15 @@ async function upsertTokenOwner(
 ): Promise<void> {
   const id = `${listingId}-${account}`;
   if (!opt?.isSome) {
-    const existing = await MarketplaceTokensOwners.get(id);
-    if (existing) await MarketplaceTokensOwners.remove(id);
+    const existing = await MarketplaceShareOwners.get(id);
+    if (existing) await MarketplaceShareOwners.remove(id);
     return;
   }
 
   const record = asRecord(toJsonValue(opt.unwrap()));
   if (!record) return;
 
-  const row = MarketplaceTokensOwners.create({
+  const row = MarketplaceShareOwners.create({
     id,
     listingId,
     ongoingObjectListingId: listingId.toString(),
@@ -754,11 +754,11 @@ async function syncTokenListing(
   blockNumber: number,
 ): Promise<void> {
   try {
-    const opt = asOption(await api.query.marketplace.tokenListings(listingId));
+    const opt = asOption(await api.query.marketplace.shareListings(listingId));
     await upsertTokenListing(listingId, opt, blockNumber);
   } catch (e) {
     logger.warn(
-      `Block ${blockNumber}: tokenListings(${listingId}) failed: ${formatError(e)}`,
+      `Block ${blockNumber}: shareListings(${listingId}) failed: ${formatError(e)}`,
     );
   }
 }
@@ -818,12 +818,12 @@ async function syncTokenOwner(
 ): Promise<void> {
   try {
     const opt = asOption(
-      await api.query.marketplace.tokenOwner(account, listingId),
+      await api.query.marketplace.shareOwner(account, listingId),
     );
     await upsertTokenOwner(listingId, account, opt, blockNumber);
   } catch (e) {
     logger.warn(
-      `Block ${blockNumber}: tokenOwner(${account}, ${listingId}) failed: ${formatError(e)}`,
+      `Block ${blockNumber}: shareOwner(${account}, ${listingId}) failed: ${formatError(e)}`,
     );
   }
 }

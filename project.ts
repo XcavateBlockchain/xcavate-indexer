@@ -22,7 +22,7 @@ const project: SubstrateProject = {
   version: "0.0.2",
   name: "xcavate-indexer",
   description:
-    "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, and DIDs.",
+    "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, and marketplace.",
   runner: {
     node: {
       name: "@subql/node",
@@ -98,13 +98,6 @@ const project: SubstrateProject = {
             handler: "handleBucketsEvent",
             filter: {
               module: "buckets",
-            },
-          },
-          {
-            kind: SubstrateHandlerKind.Event,
-            handler: "handleDidEvent",
-            filter: {
-              module: "did",
             },
           },
         ],

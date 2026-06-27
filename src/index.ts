@@ -12,5 +12,4 @@ export {
   handleMarketplaceEvent,
   handleRealWorldAssetsEvent,
   handleBucketsEvent,
-  handleDidEvent,
 } from "./mappings";

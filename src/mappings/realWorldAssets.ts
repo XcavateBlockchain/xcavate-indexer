@@ -152,8 +152,8 @@ async function syncRealWorldAssetsFromStorage(
   );
 
   await syncEntries(
-    pallet.PropertyOwnerToken ?? pallet.propertyOwnerToken,
-    "realWorldAsset.propertyOwnerToken",
+    pallet.PropertyOwnerShares ?? pallet.propertyOwnerShares,
+    "realWorldAsset.propertyOwnerShares",
     blockNumber,
     async (args, opt) => {
       const assetId = getAssetId(args[0]);

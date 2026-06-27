@@ -192,11 +192,11 @@ type MarketplaceShareListings @entity {
   ongoingObjectListingId: String!
   seller: String
   tokenPrice: String
-  assetId: Int
-  realWorldAssetId: String
-  collectionId: Int
-  itemId: Int
-  realEstateNftId: String
+  assetId: Int @index
+  realWorldAsset: RealWorldAsset
+  collectionId: Int @index
+  itemId: Int @index
+  realEstateNft: RealEstateNft
   amount: Int
   updatedBlock: Int
 }

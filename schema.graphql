@@ -1,3 +1,4 @@
+# DID
 type Did @entity {
   id: ID! # the DID identifier (SS58 AccountId32)
   authenticationKey: String # resolved Sr25519/Ed25519/Ecdsa public key (hex)
@@ -11,6 +12,7 @@ type Did @entity {
   updatedBlock: Int # block where the row was last refreshed
 }
 
+# Buckets
 type Bucket @entity {
   id: ID! #bucketId as string
   namespaceId: Int! @index
@@ -56,6 +58,7 @@ type Message @entity {
   ipfsContent: String # fetched text content; null for non-text/plain or fetch failure
 }
 
+# RealEstateNft
 type RealEstateNft @entity {
   id: ID!
   # on-chain NFT identifiers — needed to find this row from events that only carry (collection, item), e.g. realEstateNfts.Burned
@@ -109,6 +112,7 @@ type RealEstateNft @entity {
   files: [String]
 }
 
+# RealWorldAsset
 type RealWorldAsset @entity {
   id: ID! # assetId as string
   assetId: Int! @index
@@ -136,6 +140,7 @@ type RealWorldAssetOwner @entity {
   updatedBlock: Int!
 }
 
+# Marketplace
 type MarketplaceOngoingObjectListings @entity {
   id: ID! # listingId as string
   listingId: Int! @index

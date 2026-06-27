@@ -16,10 +16,10 @@ const dotenvPath = path.resolve(
 );
 dotenv.config({ path: dotenvPath, quiet: true });
 
-// Can expand the Datasource processor types via the genreic param
+// Can expand the Datasource processor types via the generic param
 const project: SubstrateProject = {
   specVersion: "1.0.0",
-  version: "0.0.1",
+  version: "0.0.2",
   name: "xcavate-indexer",
   description:
     "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, and DIDs.",

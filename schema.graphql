@@ -43,6 +43,7 @@ type Message @entity {
   ipfsContent: String # fetched text content; null for non-text/plain or fetch failure
 }
 
+# RealEstateNft
 type RealEstateNft @entity {
   id: ID!
   # on-chain NFT identifiers — needed to find this row from events that only carry (collection, item), e.g. realEstateNfts.Burned
@@ -96,6 +97,7 @@ type RealEstateNft @entity {
   files: [String]
 }
 
+# RealWorldAsset
 type RealWorldAsset @entity {
   id: ID! # assetId as string
   assetId: Int! @index
@@ -123,6 +125,7 @@ type RealWorldAssetOwner @entity {
   updatedBlock: Int!
 }
 
+# Marketplace
 type MarketplaceOngoingObjectListings @entity {
   id: ID! # listingId as string
   listingId: Int! @index
@@ -147,8 +150,8 @@ type MarketplaceOngoingObjectListings @entity {
   investorFunds: String
   updatedBlock: Int!
 
-  tokenOwners: [MarketplaceTokensOwners!] @derivedFrom(field: "ongoingObjectListing")
-  tokenListings: [MarketplaceTokenListings!] @derivedFrom(field: "ongoingObjectListing")
+  shareOwners: [MarketplaceShareOwners!] @derivedFrom(field: "ongoingObjectListing")
+  shareListings: [MarketplaceShareListings!] @derivedFrom(field: "ongoingObjectListing")
   ongoingOffers: [MarketplaceOngoingOffers!] @derivedFrom(field: "ongoingObjectListing")
   listingSpvProposals: [MarketplaceListingSpvProposals!] @derivedFrom(field: "ongoingObjectListing")
   ongoingLawyerVotings: [MarketplaceOngoingLawyerVotings!] @derivedFrom(field: "ongoingObjectListing")
@@ -156,10 +159,10 @@ type MarketplaceOngoingObjectListings @entity {
   userLawyerVotes: [MarketplaceUserLawyerVotes!] @derivedFrom(field: "ongoingObjectListing")
 }
 
-type MarketplaceTokensOwners @entity {
+type MarketplaceShareOwners @entity {
   id: ID! # listingId-account
   listingId: Int! @index
-  ongoingObjectListing: MarketplaceOngoingObjectListings
+  ongoingObjectListingId: String!
   account: String! @index
   tokenAmount: Int
   paidFunds: String
@@ -168,10 +171,10 @@ type MarketplaceTokensOwners @entity {
   updatedBlock: Int!
 }
 
-type MarketplaceTokenListings @entity {
-  id: ID! # listingId as string
-  listingId: Int! @index
-  ongoingObjectListing: MarketplaceOngoingObjectListings
+type MarketplaceShareListings @entity {
+  id: ID!
+  listingId: Int!
+  ongoingObjectListingId: String!
   seller: String
   tokenPrice: String
   assetId: Int @index

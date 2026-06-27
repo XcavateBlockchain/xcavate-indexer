@@ -36,7 +36,7 @@ export async function handleRealWorldAssetsEvent(
   const args = event.event.data as unknown[];
 
   switch (method) {
-    case "PropertyTokenCreated":
+    case "PropertySharesCreated":
       return syncAssetFromEvent(args[0], blockNumber);
     case "PropertyNftBurned":
       return syncAssetFromEvent(args[2], blockNumber);
@@ -152,8 +152,8 @@ async function syncRealWorldAssetsFromStorage(
   );
 
   await syncEntries(
-    pallet.PropertyOwnerToken ?? pallet.propertyOwnerToken,
-    "realWorldAsset.propertyOwnerToken",
+    pallet.PropertyOwnerShares ?? pallet.propertyOwnerShares,
+    "realWorldAsset.propertyOwnerShares",
     blockNumber,
     async (args, opt) => {
       const assetId = getAssetId(args[0]);

@@ -2,6 +2,8 @@
 
 SubQuery indexer for the Xcavate parachain (Paseo testnet). Exposes a GraphQL API consumed by the Xcavate mobile app.
 
+Compatible with runtime metadata v15 (runtimeVersion 3010).
+
 Indexed pallets:
 
 | Pallet           | Entities                                                |

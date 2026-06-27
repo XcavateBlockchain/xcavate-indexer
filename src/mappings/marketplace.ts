@@ -48,20 +48,20 @@ export async function handleMarketplaceEvent(
     case "ListingDelisted":
     case "PrimarySaleCompleted":
     case "PrimarySaleSoldOut":
-    case "AllPropertyTokenClaimed":
+    case "AllPropertySharesClaimed":
     case "UnclaimedRelisted":
-    case "UnclaimedTokenWithdrawn":
+    case "UnclaimedSharesWithdrawn":
     case "InvestmentCancelled":
     case "DeveloperDepositReturned":
       return syncListingFromEvent(method, args, blockNumber);
-    case "PropertyTokenBought":
+    case "PropertySharesBought":
       await syncListingFromEvent(method, args, blockNumber);
       return syncTokenOwnerFromEvent(args, 0, 2, blockNumber);
-    case "PropertyTokenClaimed":
+    case "PropertySharesClaimed":
       await syncListingFromEvent(method, args, blockNumber);
       return syncTokenOwnerFromEvent(args, 0, 2, blockNumber);
-    case "TokenRelisted":
-    case "RelistedTokenBought":
+    case "SharesRelisted":
+    case "RelistedSharesBought":
       return syncTokenListingFromEvent(args, blockNumber);
     case "OfferCreated":
     case "OfferCancelled":

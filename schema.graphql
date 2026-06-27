@@ -1,18 +1,3 @@
-# DID
-type Did @entity {
-  id: ID! # the DID identifier (SS58 AccountId32)
-  authenticationKey: String # resolved Sr25519/Ed25519/Ecdsa public key (hex)
-  keyAgreementKeys: [String] # resolved X25519 public keys (hex), array
-  delegationKey: String # resolved key for signing delegations (hex), null if not set
-  attestationKey: String # resolved key for signing attestations (hex), null if not set
-  lastTxCounter: Int # nonce — DID-authorized calls performed so far
-  depositOwner: String # SS58 address that paid the storage deposit
-  depositAmount: Int
-  createdBlock: Int # block where DidCreated fired
-  updatedBlock: Int # block where the row was last refreshed
-}
-
-# Buckets
 type Bucket @entity {
   id: ID! #bucketId as string
   namespaceId: Int! @index

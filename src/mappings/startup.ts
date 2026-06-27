@@ -2,7 +2,6 @@ import type { SubstrateBlock } from "@subql/types";
 
 import { formatError } from "./common";
 import { ensureBucketsSynced } from "./buckets";
-import { ensureDidsSynced } from "./did";
 import { ensureMarketplaceSynced } from "./marketplace";
 import { ensureRealEstateNftsSynced } from "./realEstateNfts";
 import { ensureRealWorldAssetsSynced } from "./realWorldAssets";
@@ -19,7 +18,6 @@ export async function handleStartupSyncBlock(
   startupSyncInFlight ??= (async () => {
     try {
       logger.info(`Block ${blockNumber}: startup storage sync begin`);
-      await ensureDidsSynced(blockNumber);
       await ensureRealEstateNftsSynced(blockNumber);
       await ensureRealWorldAssetsSynced(blockNumber);
       await ensureBucketsSynced(blockNumber);

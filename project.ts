@@ -100,13 +100,6 @@ const project: SubstrateProject = {
               module: "buckets",
             },
           },
-          {
-            kind: SubstrateHandlerKind.Event,
-            handler: "handleDidEvent",
-            filter: {
-              module: "did",
-            },
-          },
         ],
       },
     },

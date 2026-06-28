@@ -17,7 +17,7 @@ jobs:
           DEPLOY_BRANCH: main
           REPO_URL: https://github.com/${{ github.repository }}.git
           CHAIN_ID: ${{ secrets.CHAIN_ID }}
-          ENDPOINT: ${{ secrets.WSS_ENDPOINT || secrets.ENDPOINT }}
+          ENDPOINT: ${{ secrets.WSS_ENDPOINT }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}

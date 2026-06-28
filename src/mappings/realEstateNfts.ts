@@ -103,6 +103,9 @@ export async function ensureRealEstateNftsSynced(
   blockNumber: number,
 ): Promise<void> {
   if (realEstateNftsSynced) return;
+  if (blockNumber == 0) {
+    return;
+  }
   realEstateNftsSyncInFlight ??= syncRealEstateNftsFromStorage(blockNumber)
     .then(() => {
       realEstateNftsSynced = true;

@@ -94,6 +94,9 @@ export async function ensureMarketplaceSynced(
   blockNumber: number,
 ): Promise<void> {
   if (marketplaceSynced) return;
+  if (blockNumber == 0) {
+    return;
+  }
   marketplaceSyncInFlight ??= syncMarketplaceFromStorage(blockNumber)
     .then(() => {
       marketplaceSynced = true;

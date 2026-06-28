@@ -62,6 +62,9 @@ export async function handleBucketsEvent(
 
 export async function ensureBucketsSynced(blockNumber: number): Promise<void> {
   if (bucketsSynced) return;
+  if (blockNumber == 0) {
+    return;
+  }
   bucketsSyncInFlight ??= syncBucketsFromStorage(blockNumber)
     .then(() => {
       bucketsSynced = true;

@@ -56,6 +56,9 @@ export async function ensureRealWorldAssetsSynced(
   blockNumber: number,
 ): Promise<void> {
   if (realWorldAssetsSynced) return;
+  if (blockNumber == 0) {
+    return;
+  }
   realWorldAssetsSyncInFlight ??= syncRealWorldAssetsFromStorage(blockNumber)
     .then(() => {
       realWorldAssetsSynced = true;

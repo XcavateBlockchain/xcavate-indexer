@@ -76,8 +76,8 @@ type RealEstateNft @entity {
 
   # financials
   propertyPrice: Int
-  pricePerToken: Int
-  numberOfTokens: Int
+  pricePerShare: Int
+  numberOfShares: Int
   estimatedRentalIncome: Int
   stampDutyTax: Int
   annualServiceCharge: Int
@@ -107,7 +107,7 @@ type RealWorldAsset @entity {
   region: Int
   location: String
   price: String
-  tokenAmount: Int
+  shareAmount: Int
   spvCreated: Boolean
   finalized: Boolean
   ownerAccounts: [String]
@@ -121,7 +121,7 @@ type RealWorldAssetOwner @entity {
   asset: RealWorldAsset!
   assetIdNumber: Int! @index
   account: String! @index
-  tokenAmount: Int
+  shareAmount: Int
   updatedBlock: Int!
 }
 
@@ -135,15 +135,15 @@ type MarketplaceOngoingObjectListings @entity {
   itemId: Int @index
   realEstateNft: RealEstateNft
   realEstateDeveloper: String
-  tokenPrice: String
-  tokenAmount: Int
-  listedTokenAmount: Int
+  sharePrice: String
+  shareAmount: Int
+  listedShareAmount: Int
   taxPaidByDeveloper: Boolean
   tax: Int
   listingExpiry: Int
   claimExpiry: Int
   relistCount: Int
-  unclaimedTokenAmount: Int
+  unclaimedShareAmount: Int
   collectedFunds: String
   collectedTax: String
   collectedFees: String
@@ -164,7 +164,7 @@ type MarketplaceShareOwners @entity {
   listingId: Int! @index
   ongoingObjectListing: MarketplaceOngoingObjectListings!
   account: String! @index
-  tokenAmount: Int
+  shareAmount: Int
   paidFunds: String
   paidTax: String
   relistCount: Int
@@ -176,7 +176,7 @@ type MarketplaceShareListings @entity {
   listingId: Int!
   ongoingObjectListing: MarketplaceOngoingObjectListings!
   seller: String
-  tokenPrice: String
+  sharePrice: String
   assetId: Int @index
   realWorldAsset: RealWorldAsset
   collectionId: Int @index
@@ -191,7 +191,7 @@ type MarketplaceOngoingOffers @entity {
   listingId: Int! @index
   ongoingObjectListing: MarketplaceOngoingObjectListings
   offeror: String! @index
-  tokenPrice: String
+  sharePrice: String
   amount: Int
   paymentAssets: Int
   paymentAsset: RealWorldAsset

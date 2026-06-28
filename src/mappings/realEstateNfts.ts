@@ -238,8 +238,8 @@ async function upsertPropertyFromMetadata(
       localAuthority: getString(address?.localAuthority),
 
       propertyPrice: getNumber(financials?.propertyPrice),
-      pricePerShare: getNumber(financials?.pricePerShare),
-      numberOfShares: getNumber(financials?.numberOfShares),
+      pricePerShare: getNumber(financials?.pricePerToken),
+      numberOfShares: getNumber(financials?.numberOfTokens),
       estimatedRentalIncome: getNumber(financials?.estimatedRentalIncome),
       stampDutyTax: getNumber(financials?.stampDutyTax),
       annualServiceCharge: getNumber(financials?.annualServiceCharge),

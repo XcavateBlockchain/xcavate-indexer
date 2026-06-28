@@ -162,7 +162,7 @@ type MarketplaceOngoingObjectListings @entity {
 type MarketplaceShareOwners @entity {
   id: ID! # listingId-account
   listingId: Int! @index
-  ongoingObjectListingId: String!
+  ongoingObjectListing: MarketplaceOngoingObjectListings!
   account: String! @index
   tokenAmount: Int
   paidFunds: String
@@ -174,7 +174,7 @@ type MarketplaceShareOwners @entity {
 type MarketplaceShareListings @entity {
   id: ID!
   listingId: Int!
-  ongoingObjectListingId: String!
+  ongoingObjectListing: MarketplaceOngoingObjectListings!
   seller: String
   tokenPrice: String
   assetId: Int @index

@@ -255,3 +255,48 @@ type MarketplacePropertyLawyers @entity {
   secondAttempt: Boolean
   updatedBlock: Int!
 }
+
+# Namespace — top-level container for buckets within a namespace
+type Namespace @entity {
+  id: ID! # namespaceId as string
+  namespaceId: Int! @index
+  name: String # decoded from metadata
+  schemaUri: String # decoded from metadata (IPFS URI or similar)
+  properties: String # JSON-encoded key-value properties map
+  createdAt: Int # block number when namespace was created
+  creator: String # DID of creator (SS58)
+
+  # virtual back-references — computed by JOIN at query time
+  buckets: [Bucket!] @derivedFrom(field: "namespace")
+  managers: [NamespaceManager!] @derivedFrom(field: "namespace")
+}
+
+# NamespaceManager — admin-level permission for a namespace
+type NamespaceManager @entity {
+  id: ID! # "namespaceId-manager" — composite key for the N:M pair
+  namespace: Namespace! # FK → namespace
+  manager: String! @index # DID of the manager (SS58)
+  addedBlock: Int!
+}
+
+# Tag — user-defined label for messages within a bucket
+type Tag @entity {
+  id: ID! # "bucketId-tag" — composite key (bucketId-tagName)
+  bucket: Bucket! # FK → bucket
+  tagName: String! @index # the tag string itself
+  createdBlock: Int! # block when tag was created
+  creator: String # DID of creator (SS58)
+  messageCount: Int # number of messages referencing this tag (from TagMessages storage)
+
+  # virtual back-reference
+  messages: [Message!] @derivedFrom(field: "tag")
+}
+
+# TagMessageCount — tracks how many messages reference a given tag within a bucket
+type TagMessageCount @entity {
+  id: ID! # "bucketId-tag" — composite key
+  bucket: Bucket! # FK → bucket
+  tagName: String! @index # the tag string
+  count: Int! # number of messages referencing this tag
+  updatedBlock: Int! # last block this count was updated
+}

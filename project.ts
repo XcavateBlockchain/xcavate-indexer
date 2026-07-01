@@ -16,10 +16,10 @@ const dotenvPath = path.resolve(
 );
 dotenv.config({ path: dotenvPath, quiet: true });
 
-// Can expand the Datasource processor types via the genreic param
+// Can expand the Datasource processor types via the generic param
 const project: SubstrateProject = {
   specVersion: "1.0.0",
-  version: "0.0.1",
+  version: "0.0.2",
   name: "xcavate-indexer",
   description:
     "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, namespaces, managers, tags, and DIDs.",
@@ -52,7 +52,7 @@ const project: SubstrateProject = {
   dataSources: [
     {
       kind: SubstrateDatasourceKind.Runtime,
-      startBlock: 2322563,
+      startBlock: 1,
       mapping: {
         file: "./dist/index.js",
         handlers: [
@@ -87,7 +87,7 @@ const project: SubstrateProject = {
             kind: SubstrateHandlerKind.Event,
             handler: "handleMarketplaceEvent",
             filter: {
-              module: "marketplace",
+              module: "marketplace",;
             },
           },
           {
@@ -102,13 +102,6 @@ const project: SubstrateProject = {
             handler: "handleBucketsEvent",
             filter: {
               module: "buckets",
-            },
-          },
-          {
-            kind: SubstrateHandlerKind.Event,
-            handler: "handleDidEvent",
-            filter: {
-              module: "did",
             },
           },
         ],

@@ -103,6 +103,9 @@ export async function ensureRealEstateNftsSynced(
   blockNumber: number,
 ): Promise<void> {
   if (realEstateNftsSynced) return;
+  if (blockNumber == 0) {
+    return;
+  }
   realEstateNftsSyncInFlight ??= syncRealEstateNftsFromStorage(blockNumber)
     .then(() => {
       realEstateNftsSynced = true;
@@ -235,8 +238,8 @@ async function upsertPropertyFromMetadata(
       localAuthority: getString(address?.localAuthority),
 
       propertyPrice: getNumber(financials?.propertyPrice),
-      pricePerToken: getNumber(financials?.pricePerToken),
-      numberOfTokens: getNumber(financials?.numberOfTokens),
+      pricePerShare: getNumber(financials?.pricePerToken),
+      numberOfShares: getNumber(financials?.numberOfTokens),
       estimatedRentalIncome: getNumber(financials?.estimatedRentalIncome),
       stampDutyTax: getNumber(financials?.stampDutyTax),
       annualServiceCharge: getNumber(financials?.annualServiceCharge),

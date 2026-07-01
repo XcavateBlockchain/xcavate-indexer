@@ -1,16 +1,3 @@
-type Did @entity {
-  id: ID! # the DID identifier (SS58 AccountId32)
-  authenticationKey: String # resolved Sr25519/Ed25519/Ecdsa public key (hex)
-  keyAgreementKeys: [String] # resolved X25519 public keys (hex), array
-  delegationKey: String # resolved key for signing delegations (hex), null if not set
-  attestationKey: String # resolved key for signing attestations (hex), null if not set
-  lastTxCounter: Int # nonce — DID-authorized calls performed so far
-  depositOwner: String # SS58 address that paid the storage deposit
-  depositAmount: Int
-  createdBlock: Int # block where DidCreated fired
-  updatedBlock: Int # block where the row was last refreshed
-}
-
 type Bucket @entity {
   id: ID! #bucketId as string
   namespaceId: Int! @index
@@ -56,6 +43,7 @@ type Message @entity {
   ipfsContent: String # fetched text content; null for non-text/plain or fetch failure
 }
 
+# RealEstateNft
 type RealEstateNft @entity {
   id: ID!
   # on-chain NFT identifiers — needed to find this row from events that only carry (collection, item), e.g. realEstateNfts.Burned
@@ -88,8 +76,8 @@ type RealEstateNft @entity {
 
   # financials
   propertyPrice: Int
-  pricePerToken: Int
-  numberOfTokens: Int
+  pricePerShare: Int
+  numberOfShares: Int
   estimatedRentalIncome: Int
   stampDutyTax: Int
   annualServiceCharge: Int
@@ -109,6 +97,7 @@ type RealEstateNft @entity {
   files: [String]
 }
 
+# RealWorldAsset
 type RealWorldAsset @entity {
   id: ID! # assetId as string
   assetId: Int! @index
@@ -118,7 +107,7 @@ type RealWorldAsset @entity {
   region: Int
   location: String
   price: String
-  tokenAmount: Int
+  shareAmount: Int
   spvCreated: Boolean
   finalized: Boolean
   ownerAccounts: [String]
@@ -132,10 +121,11 @@ type RealWorldAssetOwner @entity {
   asset: RealWorldAsset!
   assetIdNumber: Int! @index
   account: String! @index
-  tokenAmount: Int
+  shareAmount: Int
   updatedBlock: Int!
 }
 
+# Marketplace
 type MarketplaceOngoingObjectListings @entity {
   id: ID! # listingId as string
   listingId: Int! @index
@@ -145,23 +135,23 @@ type MarketplaceOngoingObjectListings @entity {
   itemId: Int @index
   realEstateNft: RealEstateNft
   realEstateDeveloper: String
-  tokenPrice: String
-  tokenAmount: Int
-  listedTokenAmount: Int
+  sharePrice: String
+  shareAmount: Int
+  listedShareAmount: Int
   taxPaidByDeveloper: Boolean
   tax: Int
   listingExpiry: Int
   claimExpiry: Int
   relistCount: Int
-  unclaimedTokenAmount: Int
+  unclaimedShareAmount: Int
   collectedFunds: String
   collectedTax: String
   collectedFees: String
   investorFunds: String
   updatedBlock: Int!
 
-  tokenOwners: [MarketplaceTokensOwners!] @derivedFrom(field: "ongoingObjectListing")
-  tokenListings: [MarketplaceTokenListings!] @derivedFrom(field: "ongoingObjectListing")
+  shareOwners: [MarketplaceShareOwners!] @derivedFrom(field: "ongoingObjectListing")
+  shareListings: [MarketplaceShareListings!] @derivedFrom(field: "ongoingObjectListing")
   ongoingOffers: [MarketplaceOngoingOffers!] @derivedFrom(field: "ongoingObjectListing")
   listingSpvProposals: [MarketplaceListingSpvProposals!] @derivedFrom(field: "ongoingObjectListing")
   ongoingLawyerVotings: [MarketplaceOngoingLawyerVotings!] @derivedFrom(field: "ongoingObjectListing")
@@ -169,31 +159,31 @@ type MarketplaceOngoingObjectListings @entity {
   userLawyerVotes: [MarketplaceUserLawyerVotes!] @derivedFrom(field: "ongoingObjectListing")
 }
 
-type MarketplaceTokensOwners @entity {
+type MarketplaceShareOwners @entity {
   id: ID! # listingId-account
   listingId: Int! @index
-  ongoingObjectListing: MarketplaceOngoingObjectListings
+  ongoingObjectListing: MarketplaceOngoingObjectListings!
   account: String! @index
-  tokenAmount: Int
+  shareAmount: Int
   paidFunds: String
   paidTax: String
   relistCount: Int
   updatedBlock: Int!
 }
 
-type MarketplaceTokenListings @entity {
-  id: ID! # listingId as string
-  listingId: Int! @index
-  ongoingObjectListing: MarketplaceOngoingObjectListings
+type MarketplaceShareListings @entity {
+  id: ID!
+  listingId: Int!
+  ongoingObjectListing: MarketplaceOngoingObjectListings!
   seller: String
-  tokenPrice: String
+  sharePrice: String
   assetId: Int @index
   realWorldAsset: RealWorldAsset
   collectionId: Int @index
   itemId: Int @index
   realEstateNft: RealEstateNft
   amount: Int
-  updatedBlock: Int!
+  updatedBlock: Int
 }
 
 type MarketplaceOngoingOffers @entity {
@@ -201,7 +191,7 @@ type MarketplaceOngoingOffers @entity {
   listingId: Int! @index
   ongoingObjectListing: MarketplaceOngoingObjectListings
   offeror: String! @index
-  tokenPrice: String
+  sharePrice: String
   amount: Int
   paymentAssets: Int
   paymentAsset: RealWorldAsset

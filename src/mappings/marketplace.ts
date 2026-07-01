@@ -6,8 +6,8 @@ import {
   MarketplaceOngoingObjectListings,
   MarketplaceOngoingOffers,
   MarketplacePropertyLawyers,
-  MarketplaceTokenListings,
-  MarketplaceTokensOwners,
+  MarketplaceShareListings,
+  MarketplaceShareOwners,
   MarketplaceUserLawyerVotes,
   RealEstateNft,
   RealWorldAsset,
@@ -48,21 +48,21 @@ export async function handleMarketplaceEvent(
     case "ListingDelisted":
     case "PrimarySaleCompleted":
     case "PrimarySaleSoldOut":
-    case "AllPropertyTokenClaimed":
+    case "AllPropertySharesClaimed":
     case "UnclaimedRelisted":
-    case "UnclaimedTokenWithdrawn":
+    case "UnclaimedSharesWithdrawn":
     case "InvestmentCancelled":
     case "DeveloperDepositReturned":
       return syncListingFromEvent(method, args, blockNumber);
-    case "PropertyTokenBought":
+    case "PropertySharesBought":
       await syncListingFromEvent(method, args, blockNumber);
-      return syncTokenOwnerFromEvent(args, 0, 2, blockNumber);
-    case "PropertyTokenClaimed":
+      return syncShareOwnerFromEvent(args, 0, 2, blockNumber);
+    case "PropertySharesClaimed":
       await syncListingFromEvent(method, args, blockNumber);
-      return syncTokenOwnerFromEvent(args, 0, 2, blockNumber);
-    case "TokenRelisted":
-    case "RelistedTokenBought":
-      return syncTokenListingFromEvent(args, blockNumber);
+      return syncShareOwnerFromEvent(args, 0, 2, blockNumber);
+    case "SharesRelisted":
+    case "RelistedSharesBought":
+      return syncShareListingFromEvent(args, blockNumber);
     case "OfferCreated":
     case "OfferCancelled":
     case "OfferAccepted":
@@ -94,6 +94,9 @@ export async function ensureMarketplaceSynced(
   blockNumber: number,
 ): Promise<void> {
   if (marketplaceSynced) return;
+  if (blockNumber == 0) {
+    return;
+  }
   marketplaceSyncInFlight ??= syncMarketplaceFromStorage(blockNumber)
     .then(() => {
       marketplaceSynced = true;
@@ -154,14 +157,14 @@ async function syncListingFromEvent(
   await syncListingSnapshot(listingId, blockNumber);
 }
 
-async function syncTokenListingFromEvent(
+async function syncShareListingFromEvent(
   args: unknown[],
   blockNumber: number,
 ): Promise<void> {
   const listingId = getListingId(args[0]);
   if (listingId == null) return;
 
-  await syncTokenListing(listingId, blockNumber);
+  await syncShareListing(listingId, blockNumber);
 }
 
 async function syncOfferFromEvent(
@@ -177,7 +180,7 @@ async function syncOfferFromEvent(
   await syncOngoingOffer(listingId, offeror, blockNumber);
 }
 
-async function syncTokenOwnerFromEvent(
+async function syncShareOwnerFromEvent(
   args: unknown[],
   listingIndex: number,
   accountIndex: number,
@@ -187,7 +190,7 @@ async function syncTokenOwnerFromEvent(
   const account = toStringValue(args[accountIndex]);
   if (listingId == null || !account) return;
 
-  await syncTokenOwner(listingId, account, blockNumber);
+  await syncShareOwner(listingId, account, blockNumber);
 }
 
 async function syncPropertyLawyerFromEvent(
@@ -227,7 +230,7 @@ async function syncListingSnapshot(
   blockNumber: number,
 ): Promise<void> {
   await syncOngoingObjectListing(listingId, blockNumber);
-  await syncTokenListing(listingId, blockNumber);
+  await syncShareListing(listingId, blockNumber);
   await syncPropertyLawyer(listingId, blockNumber);
   await syncListingSpvProposal(listingId, blockNumber);
 }
@@ -255,13 +258,13 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
   );
 
   await syncEntries(
-    pallet.TokenListings ?? pallet.tokenListings,
-    "marketplace.tokenListings",
+    pallet.ShareListings ?? pallet.shareListings,
+    "marketplace.shareListings",
     blockNumber,
     async (args, opt) => {
       const listingId = getListingId(args[0]);
       if (listingId == null) return;
-      await upsertTokenListing(listingId, opt, blockNumber);
+      await upsertShareListing(listingId, opt, blockNumber);
     },
   );
 
@@ -328,14 +331,14 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
   );
 
   await syncEntries(
-    pallet.TokenOwner ?? pallet.tokenOwner,
-    "marketplace.tokenOwner",
+    pallet.ShareOwner ?? pallet.shareOwner,
+    "marketplace.shareOwner",
     blockNumber,
     async (args, opt) => {
       const account = toStringValue(args[0]);
       const listingId = getListingId(args[1]);
       if (!account || listingId == null) return;
-      await upsertTokenOwner(listingId, account, opt, blockNumber);
+      await upsertShareOwner(listingId, account, opt, blockNumber);
     },
   );
 
@@ -427,12 +430,12 @@ async function upsertOngoingObjectListing(
     realEstateDeveloper: getString(
       getField(record, "real_estate_developer", "realEstateDeveloper"),
     ),
-    tokenPrice: getField(record, "token_price", "tokenPrice") != null
-      ? String(getField(record, "token_price", "tokenPrice"))
+    sharePrice: getField(record, "share_price", "sharePrice") != null
+      ? String(getField(record, "share_price", "sharePrice"))
       : undefined,
-    tokenAmount: getNumber(getField(record, "token_amount", "tokenAmount")),
-    listedTokenAmount: getNumber(
-      getField(record, "listed_token_amount", "listedTokenAmount"),
+    shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
+    listedShareAmount: getNumber(
+      getField(record, "listed_share_amount", "listedShareAmount"),
     ),
     taxPaidByDeveloper: getBoolean(
       getField(record, "tax_paid_by_developer", "taxPaidByDeveloper"),
@@ -443,8 +446,8 @@ async function upsertOngoingObjectListing(
     ),
     claimExpiry: getNumber(getField(record, "claim_expiry", "claimExpiry")),
     relistCount: getNumber(getField(record, "relist_count", "relistCount")),
-    unclaimedTokenAmount: getNumber(
-      getField(record, "unclaimed_token_amount", "unclaimedTokenAmount"),
+    unclaimedShareAmount: getNumber(
+      getField(record, "unclaimed_share_amount", "unclaimedShareAmount"),
     ),
     collectedFunds: stringifyJson(
       toJsonValue(getField(record, "collected_funds", "collectedFunds")),
@@ -464,15 +467,15 @@ async function upsertOngoingObjectListing(
   await row.save();
 }
 
-async function upsertTokenListing(
+async function upsertShareListing(
   listingId: number,
   opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
 ): Promise<void> {
   const id = listingId.toString();
   if (!opt?.isSome) {
-    const existing = await MarketplaceTokenListings.get(id);
-    if (existing) await MarketplaceTokenListings.remove(id);
+    const existing = await MarketplaceShareListings.get(id);
+    if (existing) await MarketplaceShareListings.remove(id);
     return;
   }
 
@@ -491,13 +494,13 @@ async function upsertTokenListing(
   );
   const realWorldAssetId = await resolveRealWorldAssetId(assetId);
 
-  const row = MarketplaceTokenListings.create({
+  const row = MarketplaceShareListings.create({
     id,
     listingId,
     ongoingObjectListingId: id,
     seller: getString(record.seller),
-    tokenPrice: getField(record, "token_price", "tokenPrice") != null
-      ? String(getField(record, "token_price", "tokenPrice"))
+    sharePrice: getField(record, "share_price", "sharePrice") != null
+      ? String(getField(record, "share_price", "sharePrice"))
       : undefined,
     assetId: assetId ?? undefined,
     realWorldAssetId,
@@ -663,7 +666,7 @@ async function upsertUserLawyerVote(
   await row.save();
 }
 
-async function upsertTokenOwner(
+async function upsertShareOwner(
   listingId: number,
   account: string,
   opt: ReturnType<typeof asOption> | undefined,
@@ -671,20 +674,20 @@ async function upsertTokenOwner(
 ): Promise<void> {
   const id = `${listingId}-${account}`;
   if (!opt?.isSome) {
-    const existing = await MarketplaceTokensOwners.get(id);
-    if (existing) await MarketplaceTokensOwners.remove(id);
+    const existing = await MarketplaceShareOwners.get(id);
+    if (existing) await MarketplaceShareOwners.remove(id);
     return;
   }
 
   const record = asRecord(toJsonValue(opt.unwrap()));
   if (!record) return;
 
-  const row = MarketplaceTokensOwners.create({
+  const row = MarketplaceShareOwners.create({
     id,
     listingId,
     ongoingObjectListingId: listingId.toString(),
     account,
-    tokenAmount: getNumber(getField(record, "token_amount", "tokenAmount")),
+    shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
     paidFunds: stringifyJson(
       toJsonValue(getField(record, "paid_funds", "paidFunds")),
     ),
@@ -722,8 +725,8 @@ async function upsertOngoingOffer(
     listingId,
     ongoingObjectListingId: listingId.toString(),
     offeror,
-    tokenPrice: getField(record, "token_price", "tokenPrice") != null
-      ? String(getField(record, "token_price", "tokenPrice"))
+    sharePrice: getField(record, "share_price", "sharePrice") != null
+      ? String(getField(record, "share_price", "sharePrice"))
       : undefined,
     amount: getNumber(record.amount),
     paymentAssets,
@@ -749,16 +752,16 @@ async function syncOngoingObjectListing(
   }
 }
 
-async function syncTokenListing(
+async function syncShareListing(
   listingId: number,
   blockNumber: number,
 ): Promise<void> {
   try {
-    const opt = asOption(await api.query.marketplace.tokenListings(listingId));
-    await upsertTokenListing(listingId, opt, blockNumber);
+    const opt = asOption(await api.query.marketplace.shareListings(listingId));
+    await upsertShareListing(listingId, opt, blockNumber);
   } catch (e) {
     logger.warn(
-      `Block ${blockNumber}: tokenListings(${listingId}) failed: ${formatError(e)}`,
+      `Block ${blockNumber}: shareListings(${listingId}) failed: ${formatError(e)}`,
     );
   }
 }
@@ -811,19 +814,19 @@ async function syncOngoingOffer(
   }
 }
 
-async function syncTokenOwner(
+async function syncShareOwner(
   listingId: number,
   account: string,
   blockNumber: number,
 ): Promise<void> {
   try {
     const opt = asOption(
-      await api.query.marketplace.tokenOwner(account, listingId),
+      await api.query.marketplace.shareOwner(account, listingId),
     );
-    await upsertTokenOwner(listingId, account, opt, blockNumber);
+    await upsertShareOwner(listingId, account, opt, blockNumber);
   } catch (e) {
     logger.warn(
-      `Block ${blockNumber}: tokenOwner(${account}, ${listingId}) failed: ${formatError(e)}`,
+      `Block ${blockNumber}: shareOwner(${account}, ${listingId}) failed: ${formatError(e)}`,
     );
   }
 }

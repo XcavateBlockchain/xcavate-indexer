@@ -36,7 +36,7 @@ export async function handleRealWorldAssetsEvent(
   const args = event.event.data as unknown[];
 
   switch (method) {
-    case "PropertyTokenCreated":
+    case "PropertySharesCreated":
       return syncAssetFromEvent(args[0], blockNumber);
     case "PropertyNftBurned":
       return syncAssetFromEvent(args[2], blockNumber);
@@ -56,6 +56,9 @@ export async function ensureRealWorldAssetsSynced(
   blockNumber: number,
 ): Promise<void> {
   if (realWorldAssetsSynced) return;
+  if (blockNumber == 0) {
+    return;
+  }
   realWorldAssetsSyncInFlight ??= syncRealWorldAssetsFromStorage(blockNumber)
     .then(() => {
       realWorldAssetsSynced = true;
@@ -152,14 +155,14 @@ async function syncRealWorldAssetsFromStorage(
   );
 
   await syncEntries(
-    pallet.PropertyOwnerToken ?? pallet.propertyOwnerToken,
-    "realWorldAsset.propertyOwnerToken",
+    pallet.PropertyOwnerShares ?? pallet.propertyOwnerShares,
+    "realWorldAsset.propertyOwnerShares",
     blockNumber,
     async (args, opt) => {
       const assetId = getAssetId(args[0]);
       const account = toStringValue(args[1]);
       if (assetId == null || !account) return;
-      await upsertOwnerToken(assetId, account, opt, blockNumber);
+      await upsertOwnerShare(assetId, account, opt, blockNumber);
     },
   );
 
@@ -254,7 +257,7 @@ async function upsertRealWorldAsset(
     region: getNumber(record.region),
     location: getLocation(record.location),
     price: stringifyValue(record.price),
-    tokenAmount: getNumber(getField(record, "token_amount", "tokenAmount")),
+    shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
     spvCreated: getBoolean(getField(record, "spv_created", "spvCreated")),
     finalized: getBoolean(record.finalized),
     ownerAccounts: existing?.ownerAccounts,
@@ -291,14 +294,14 @@ async function upsertOwners(
       assetId: id,
       assetIdNumber: assetId,
       account,
-      tokenAmount: existing?.tokenAmount,
+      shareAmount: existing?.shareAmount,
       updatedBlock: blockNumber,
     });
     await row.save();
   }
 }
 
-async function upsertOwnerToken(
+async function upsertOwnerShare(
   assetId: number,
   account: string,
   opt: OptionLike | undefined,
@@ -308,19 +311,19 @@ async function upsertOwnerToken(
   const asset = await RealWorldAsset.get(assetRowId);
   if (!asset) {
     logger.warn(
-      `Block ${blockNumber}: realWorldAsset owner token skipped; asset ${assetId} missing`,
+      `Block ${blockNumber}: realWorldAsset owner share skipped; asset ${assetId} missing`,
     );
     return;
   }
 
   const ownerId = `${assetId}-${account}`;
-  const tokenAmount = opt?.isSome ? getNumber(opt.unwrap()) : undefined;
+  const shareAmount = opt?.isSome ? getNumber(opt.unwrap()) : undefined;
   const row = RealWorldAssetOwner.create({
     id: ownerId,
     assetId: assetRowId,
     assetIdNumber: assetId,
     account,
-    tokenAmount,
+    shareAmount,
     updatedBlock: blockNumber,
   });
   await row.save();

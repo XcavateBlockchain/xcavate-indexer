@@ -4,6 +4,7 @@ export {
   handleRealEstateNftsSyncBlock,
   handleMarketplaceSyncBlock,
   handleRealWorldAssetsSyncBlock,
+  handleBucketsSyncBlock,
 } from "./mappings";
 
 // Event handlers

@@ -22,7 +22,7 @@ const project: SubstrateProject = {
   version: "0.0.2",
   name: "xcavate-indexer",
   description:
-    "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, and marketplace.",
+    "SubQuery indexer for the Xcavate parachain: real-estate NFTs, buckets, messages, namespaces, managers, tags, and DIDs.",
   runner: {
     node: {
       name: "@subql/node",
@@ -73,6 +73,10 @@ const project: SubstrateProject = {
             handler: "handleRealWorldAssetsSyncBlock",
           },
           {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handleBucketsSyncBlock",
+          },
+          {
             kind: SubstrateHandlerKind.Event,
             handler: "handleRealEstateNftsEvent",
             filter: {
@@ -83,7 +87,7 @@ const project: SubstrateProject = {
             kind: SubstrateHandlerKind.Event,
             handler: "handleMarketplaceEvent",
             filter: {
-              module: "marketplace",
+              module: "marketplace",;
             },
           },
           {

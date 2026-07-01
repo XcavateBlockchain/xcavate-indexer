@@ -87,7 +87,7 @@ const project: SubstrateProject = {
             kind: SubstrateHandlerKind.Event,
             handler: "handleMarketplaceEvent",
             filter: {
-              module: "marketplace",;
+              module: "marketplace",
             },
           },
           {

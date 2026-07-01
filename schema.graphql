@@ -277,9 +277,6 @@ type Tag @entity {
   createdBlock: Int! # block when tag was created
   creator: String # DID of creator (SS58)
   messageCount: Int # number of messages referencing this tag (from TagMessages storage)
-
-  # virtual back-reference
-  messages: [Message!] @derivedFrom(field: "tag")
 }
 
 # TagMessageCount — tracks how many messages reference a given tag within a bucket

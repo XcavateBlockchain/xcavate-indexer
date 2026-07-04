@@ -65,10 +65,12 @@ services:
       DB_DATABASE: postgres
       DB_HOST: postgres
       DB_PORT: 5432
+      GRAPHQL_CORS_ORIGINS: https://realxmessage.xcavate.io,https://indexer.realxmarket.io
     command:
       - --name=app
       - --playground
       - --indexer=http://subquery-node:3000
+      - --cors
 
   prometheus:
     image: prom/prometheus:latest

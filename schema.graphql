@@ -11,6 +11,7 @@ type Bucket @entity {
 
   # virtual back-references — no columns, computed by JOIN at query time
   contributors: [BucketContributor!] @derivedFrom(field: "bucket")
+  viewers: [BucketViewer!] @derivedFrom(field: "bucket")
   admins: [BucketAdmin!] @derivedFrom(field: "bucket")
   messages: [Message!] @derivedFrom(field: "bucket")
 }
@@ -19,6 +20,13 @@ type BucketContributor @entity {
   id: ID! # "bucketId-subjectId" — composite key for the N:M pair
   bucket: Bucket! # FK → bucket_id column + index + FK constraint
   subjectId: String! @index # DID of the contributor
+  addedBlock: Int!
+}
+
+type BucketViewer @entity {
+  id: ID! # "bucketId-viewerId" — composite key for the N:M pair
+  bucket: Bucket! # FK → bucket_id column + index + FK constraint
+  viewerId: String! @index # X25519 public key of the viewer, encoded as hex
   addedBlock: Int!
 }
 

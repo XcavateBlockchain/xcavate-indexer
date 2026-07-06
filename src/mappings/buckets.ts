@@ -4,6 +4,7 @@ import {
   Bucket,
   BucketAdmin,
   BucketContributor,
+  BucketViewer,
   Message,
   Namespace,
   NamespaceManager,
@@ -70,6 +71,11 @@ export async function handleBucketsEvent(
       return handleContributorAdded(event, blockNumber);
     case "ContributorRemoved":
       return handleContributorRemoved(event, blockNumber);
+    // Viewer lifecycle
+    case "ViewerAdded":
+      return handleViewerAdded(event, blockNumber);
+    case "ViewerRemoved":
+      return handleViewerRemoved(event, blockNumber);
     // Admin lifecycle
     case "AdminAdded":
       return handleAdminAdded(event, blockNumber);
@@ -156,29 +162,64 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     "buckets.contributors",
     blockNumber,
     async (args) => {
-      const namespaceId = toNumber(args[0]);
-      const bucketId = toNumber(args[1]);
-      const subjectRaw = args[2];
-      if (namespaceId == null || bucketId == null || subjectRaw == null) return;
-      await upsertBucketContributor(namespaceId, bucketId, subjectRaw, blockNumber);
+      const membership = await getBucketMembershipStorageKey(
+        args,
+        "buckets.contributors",
+        blockNumber,
+      );
+      if (!membership) return;
+      await upsertBucketContributor(
+        membership.namespaceId,
+        membership.bucketId,
+        membership.memberRaw,
+        blockNumber,
+      );
     },
   );
 
-  // 4. Admins (existing)
+  // 4. Viewers
+  await syncBucketStorageEntries(
+    pallet.viewers,
+    "buckets.viewers",
+    blockNumber,
+    async (args) => {
+      const membership = await getBucketMembershipStorageKey(
+        args,
+        "buckets.viewers",
+        blockNumber,
+      );
+      if (!membership) return;
+      await upsertBucketViewer(
+        membership.namespaceId,
+        membership.bucketId,
+        membership.memberRaw,
+        blockNumber,
+      );
+    },
+  );
+
+  // 5. Admins (existing)
   await syncBucketStorageEntries(
     pallet.admins,
     "buckets.admins",
     blockNumber,
     async (args) => {
-      const namespaceId = toNumber(args[0]);
-      const bucketId = toNumber(args[1]);
-      const subjectRaw = args[2];
-      if (namespaceId == null || bucketId == null || subjectRaw == null) return;
-      await upsertBucketAdmin(namespaceId, bucketId, subjectRaw, blockNumber);
+      const membership = await getBucketMembershipStorageKey(
+        args,
+        "buckets.admins",
+        blockNumber,
+      );
+      if (!membership) return;
+      await upsertBucketAdmin(
+        membership.namespaceId,
+        membership.bucketId,
+        membership.memberRaw,
+        blockNumber,
+      );
     },
   );
 
-  // 5. Managers — new
+  // 6. Managers — new
   await syncBucketStorageEntries(
     pallet.managers,
     "buckets.managers",
@@ -191,7 +232,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     },
   );
 
-  // 6. Messages (existing)
+  // 7. Messages (existing)
   await syncBucketStorageEntries(
     pallet.messages,
     "buckets.messages",
@@ -205,7 +246,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     },
   );
 
-  // 7. Tags — new
+  // 8. Tags — new
   await syncBucketStorageEntries(
     pallet.tags,
     "buckets.tags",
@@ -218,7 +259,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     },
   );
 
-  // 8. TagMessages — new (message counts per tag)
+  // 9. TagMessages — new (message counts per tag)
   await syncBucketStorageEntries(
     pallet.tagMessages,
     "buckets.tagMessages",
@@ -275,6 +316,45 @@ async function syncBucketStorageEntries(
   logger.info(
     `Block ${blockNumber}: ${storageName} storage entries=${entries.length}, handled=${synced}`,
   );
+}
+
+async function getBucketMembershipStorageKey(
+  args: unknown[],
+  storageName: string,
+  blockNumber: number,
+): Promise<{
+  namespaceId: number;
+  bucketId: number;
+  memberRaw: unknown;
+} | undefined> {
+  const keyArgs = args.length === 1 && Array.isArray(args[0])
+    ? args[0]
+    : args;
+
+  const namespaceIdFromKey = keyArgs.length >= 3 ? toNumber(keyArgs[0]) : undefined;
+  const bucketId = keyArgs.length >= 3 ? toNumber(keyArgs[1]) : toNumber(keyArgs[0]);
+  const memberRaw = keyArgs.length >= 3 ? keyArgs[2] : keyArgs[1];
+
+  if (bucketId == null || memberRaw == null) {
+    logger.warn(
+      `Block ${blockNumber}: ${storageName} storage key has unexpected args=${JSON.stringify(toJsonValue(keyArgs))}`,
+    );
+    return undefined;
+  }
+
+  if (namespaceIdFromKey != null) {
+    return { namespaceId: namespaceIdFromKey, bucketId, memberRaw };
+  }
+
+  const bucket = await Bucket.get(bucketId.toString());
+  if (!bucket) {
+    logger.warn(
+      `Block ${blockNumber}: ${storageName} storage key for bucket ${bucketId} skipped; bucket row missing`,
+    );
+    return undefined;
+  }
+
+  return { namespaceId: bucket.namespaceId, bucketId, memberRaw };
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +589,33 @@ async function upsertBucketContributor(
     id,
     bucketId: bucketId.toString(),
     subjectId,
+    addedBlock: existing?.addedBlock ?? blockNumber,
+  });
+  await row.save();
+}
+
+async function upsertBucketViewer(
+  namespaceId: number,
+  bucketId: number,
+  viewerRaw: unknown,
+  blockNumber: number,
+): Promise<void> {
+  await ensureBucket(namespaceId, bucketId, blockNumber);
+  const bucket = await Bucket.get(bucketId.toString());
+  if (!bucket) {
+    logger.warn(
+      `Block ${blockNumber}: viewer ${String(viewerRaw)} skipped; bucket ${bucketId} missing`,
+    );
+    return;
+  }
+  const viewerId = toHexString(viewerRaw) ?? toUtf8String(viewerRaw) ?? String(viewerRaw);
+
+  const id = `${bucketId}-${viewerId}`;
+  const existing = await BucketViewer.get(id);
+  const row = BucketViewer.create({
+    id,
+    bucketId: bucketId.toString(),
+    viewerId,
     addedBlock: existing?.addedBlock ?? blockNumber,
   });
   await row.save();
@@ -1003,6 +1110,61 @@ async function handleContributorRemoved(
   await BucketContributor.remove(id);
   logger.info(
     `Block ${blockNumber}: removed contributor ${subjectId} from bucket ${bucketId}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Event handlers — Viewer
+// ---------------------------------------------------------------------------
+
+// Adds a viewer (read permission) to a bucket.
+async function handleViewerAdded(
+  event: SubstrateEvent,
+  blockNumber: number,
+): Promise<void> {
+  const args = event.event.data as unknown[];
+  const namespaceId = Number(String(args[0]));
+  const bucketId = Number(String(args[1]));
+  const viewerRaw = args[2];
+  const viewerId = toHexString(viewerRaw) ?? toUtf8String(viewerRaw) ?? String(viewerRaw);
+  const id = `${bucketId}-${viewerId}`;
+
+  await ensureBucket(namespaceId, bucketId, blockNumber);
+
+  const row = BucketViewer.create({
+    id,
+    bucketId: bucketId.toString(),
+    viewerId,
+    addedBlock: blockNumber,
+  });
+  await row.save();
+  logger.info(
+    `Block ${blockNumber}: added viewer ${viewerId} to bucket ${bucketId}`,
+  );
+}
+
+// Removes a viewer from a bucket.
+async function handleViewerRemoved(
+  event: SubstrateEvent,
+  blockNumber: number,
+): Promise<void> {
+  const args = event.event.data as unknown[];
+  const bucketId = Number(String(args[1]));
+  const viewerRaw = args[2];
+  const viewerId = toHexString(viewerRaw) ?? toUtf8String(viewerRaw) ?? String(viewerRaw);
+  const id = `${bucketId}-${viewerId}`;
+
+  const existing = await BucketViewer.get(id);
+  if (!existing) {
+    logger.warn(
+      `Block ${blockNumber}: ViewerRemoved for ${id} but no row found`,
+    );
+    return;
+  }
+
+  await BucketViewer.remove(id);
+  logger.info(
+    `Block ${blockNumber}: removed viewer ${viewerId} from bucket ${bucketId}`,
   );
 }
 

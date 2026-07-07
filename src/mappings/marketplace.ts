@@ -19,6 +19,7 @@ import {
   asRecord,
   asStorageValue,
   formatError,
+  getBigInt,
   getBoolean,
   getNumber,
   getStorageKeyArgs,
@@ -26,7 +27,6 @@ import {
   toJsonValue,
   toStringValue,
 } from "./common";
-
 let marketplaceSyncInFlight: Promise<void> | null = null;
 let marketplaceSynced = false;
 
@@ -419,25 +419,25 @@ async function upsertOngoingObjectListing(
   const record = asRecord(toJsonValue(opt.unwrap()));
   if (!record) return;
 
-  const assetId = getNumber(getField(record, "asset_id", "assetId"));
-  const collectionId = getNumber(
+  const assetIdNum = getNumber(getField(record, "asset_id", "assetId"));
+  const collectionIdNum = getNumber(
     getField(record, "collection_id", "collectionId"),
   );
-  const itemId = getNumber(getField(record, "item_id", "itemId"));
+  const itemIdNum = getNumber(getField(record, "item_id", "itemId"));
 
   const realEstateNftId = await resolveRealEstateNftId(
-    collectionId,
-    itemId,
+    collectionIdNum,
+    itemIdNum,
   );
-  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
+  const realWorldAssetId = await resolveRealWorldAssetId(assetIdNum);
 
   const row = MarketplaceOngoingObjectListings.create({
     id,
     listingId: listingId,
-    assetId: assetId ?? undefined,
+    assetId: assetIdNum !== undefined ? BigInt(assetIdNum) : undefined,
     realWorldAssetId,
-    collectionId: collectionId ?? undefined,
-    itemId: itemId ?? undefined,
+    collectionId: collectionIdNum !== undefined ? BigInt(collectionIdNum) : undefined,
+    itemId: itemIdNum !== undefined ? BigInt(itemIdNum) : undefined,
     realEstateNftId,
     realEstateDeveloper: getString(
       getField(record, "real_estate_developer", "realEstateDeveloper"),
@@ -445,20 +445,20 @@ async function upsertOngoingObjectListing(
     sharePrice: getField(record, "share_price", "sharePrice") != null
       ? String(getField(record, "share_price", "sharePrice"))
       : undefined,
-    shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
-    listedShareAmount: getNumber(
+    shareAmount: getBigInt(getField(record, "share_amount", "shareAmount")),
+    listedShareAmount: getBigInt(
       getField(record, "listed_share_amount", "listedShareAmount"),
     ),
     taxPaidByDeveloper: getBoolean(
       getField(record, "tax_paid_by_developer", "taxPaidByDeveloper"),
     ),
-    tax: getNumber(record.tax),
-    listingExpiry: getNumber(
+    tax: getBigInt(record.tax),
+    listingExpiry: getBigInt(
       getField(record, "listing_expiry", "listingExpiry"),
     ),
-    claimExpiry: getNumber(getField(record, "claim_expiry", "claimExpiry")),
-    relistCount: getNumber(getField(record, "relist_count", "relistCount")),
-    unclaimedShareAmount: getNumber(
+    claimExpiry: getBigInt(getField(record, "claim_expiry", "claimExpiry")),
+    relistCount: getBigInt(getField(record, "relist_count", "relistCount")),
+    unclaimedShareAmount: getBigInt(
       getField(record, "unclaimed_share_amount", "unclaimedShareAmount"),
     ),
     collectedFunds: stringifyJson(
@@ -494,17 +494,18 @@ async function upsertShareListing(
   const record = asRecord(toJsonValue(opt.unwrap()));
   if (!record) return;
 
-  const assetId = getNumber(getField(record, "asset_id", "assetId"));
-  const collectionId = getNumber(
+  const assetIdNum = getNumber(getField(record, "asset_id", "assetId"));
+  const assetId = assetIdNum !== undefined ? BigInt(assetIdNum) : undefined;
+  const collectionIdNum = getNumber(
     getField(record, "collection_id", "collectionId"),
   );
-  const itemId = getNumber(getField(record, "item_id", "itemId"));
+  const itemIdNum = getNumber(getField(record, "item_id", "itemId"));
 
   const realEstateNftId = await resolveRealEstateNftId(
-    collectionId,
-    itemId,
+    collectionIdNum,
+    itemIdNum,
   );
-  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
+  const realWorldAssetId = await resolveRealWorldAssetId(assetIdNum);
 
   const row = MarketplaceShareListings.create({
     id,
@@ -514,12 +515,12 @@ async function upsertShareListing(
     sharePrice: getField(record, "share_price", "sharePrice") != null
       ? String(getField(record, "share_price", "sharePrice"))
       : undefined,
-    assetId: assetId ?? undefined,
+    assetId: assetId,
     realWorldAssetId,
-    collectionId: collectionId ?? undefined,
-    itemId: itemId ?? undefined,
+    collectionId: collectionIdNum !== undefined ? BigInt(collectionIdNum) : undefined,
+    itemId: itemIdNum !== undefined ? BigInt(itemIdNum) : undefined,
     realEstateNftId,
-    amount: getNumber(record.amount),
+    amount: getBigInt(record.amount),
     updatedBlock: blockNumber,
   });
 
@@ -557,7 +558,7 @@ async function upsertPropertyLawyer(
       getField(record, "real_estate_developer_lawyer_costs", "realEstateDeveloperLawyerCosts"),
     ),
     spvLawyerCosts: getString(getField(record, "spv_lawyer_costs", "spvLawyerCosts")),
-    legalProcessExpiry: getNumber(
+    legalProcessExpiry: getBigInt(
       getField(record, "legal_process_expiry", "legalProcessExpiry"),
     ),
     secondAttempt: getBoolean(record.second_attempt ?? record.secondAttempt),
@@ -637,14 +638,14 @@ async function upsertShareOwner(
       listingId: listingId,
       ongoingObjectListingId: listingId.toString(),
       account: account,
-      shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
+      shareAmount: getBigInt(getField(record, "share_amount", "shareAmount")),
       paidFunds: getField(record, "paid_funds", "paidFunds") != null
         ? String(getField(record, "paid_funds", "paidFunds"))
         : undefined,
       paidTax: getField(record, "paid_tax", "paidTax") != null
         ? String(getField(record, "paid_tax", "paidTax"))
         : undefined,
-      relistCount: getNumber(getField(record, "relist_count", "relistCount")),
+      relistCount: getBigInt(getField(record, "relist_count", "relistCount")),
       updatedBlock: blockNumber,
     });
 

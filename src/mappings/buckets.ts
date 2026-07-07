@@ -616,7 +616,7 @@ async function upsertBucketViewer(
   const row = BucketViewer.create({
     id,
     bucketId: bucketId.toString(),
-    bucketIdNumber: Number(bucketId),
+    bucketIdNumber: bucketId,
     viewerId,
     addedBlock: existing?.addedBlock ?? blockNumber,
   });
@@ -644,7 +644,7 @@ async function upsertBucketAdmin(
   const row = BucketAdmin.create({
     id,
     bucketId: bucketId.toString(),
-    bucketIdNumber: Number(bucketId),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: existing?.addedBlock ?? blockNumber,
   });
@@ -656,9 +656,9 @@ async function upsertBucketAdmin(
 // ---------------------------------------------------------------------------
 
 async function upsertMessageFromStorage(
-  namespaceId: number,
-  bucketId: number,
-  messageId: number,
+  namespaceId: bigint,
+  bucketId: bigint,
+  messageId: bigint,
   storedValue: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -1082,6 +1082,7 @@ async function handleContributorAdded(
   const row = BucketContributor.create({
     id,
     bucketId: bucketId.toString(),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: blockNumber,
   });
@@ -1138,7 +1139,7 @@ async function handleViewerAdded(
   const row = BucketViewer.create({
     id,
     bucketId: bucketId.toString(),
-    bucketIdNumber: Number(bucketId),
+    bucketIdNumber: bucketId,
     viewerId,
     addedBlock: blockNumber,
   });
@@ -1194,7 +1195,7 @@ async function handleAdminAdded(
   const row = BucketAdmin.create({
     id,
     bucketId: bucketId.toString(),
-    bucketIdNumber: Number(bucketId),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: blockNumber,
   });
@@ -1371,7 +1372,7 @@ async function handleNewMessage(
       id,
       bucketId: bucketId.toString(),
       messageId,
-      messageIdNumber: Number(messageId),
+      messageIdNumber: messageId,
       contributor,
       reference,
       tag,

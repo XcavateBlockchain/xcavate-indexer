@@ -433,7 +433,7 @@ async function upsertOngoingObjectListing(
 
   const row = MarketplaceOngoingObjectListings.create({
     id,
-    listingId: Number(listingId),
+    listingId: listingId,
     assetId: assetId ?? undefined,
     realWorldAssetId,
     collectionId: collectionId ?? undefined,
@@ -508,7 +508,7 @@ async function upsertShareListing(
 
   const row = MarketplaceShareListings.create({
     id,
-    listingId: Number(listingId),
+    listingId: listingId,
     ongoingObjectListingId: id,
     seller: getString(record.seller),
     sharePrice: getField(record, "share_price", "sharePrice") != null
@@ -543,7 +543,7 @@ async function upsertPropertyLawyer(
 
   const row = MarketplacePropertyLawyers.create({
     id,
-    listingId: Number(listingId),
+    listingId: listingId,
     ongoingObjectListingId: id,
     realEstateDeveloperLawyer: getString(
       getField(record, "real_estate_developer_lawyer", "realEstateDeveloperLawyer"),
@@ -576,7 +576,7 @@ async function upsertListingSpvProposal(
 
   const row = MarketplaceListingSpvProposals.create({
     id,
-    listingId: Number(listingId),
+    listingId: listingId,
     proposalId,
     updatedBlock: blockNumber,
   });
@@ -591,14 +591,9 @@ async function upsertOngoingLawyerVoting(
 ): Promise<void> {
   const id = proposalId;
 
-  let listingIdNumber: number | undefined;
-  if (listingId != null) {
-    listingIdNumber = Number(listingId);
-  }
-
   const row = MarketplaceOngoingLawyerVotings.create({
     id,
-    listingId: listingIdNumber,
+    listingId: listingId,
     proposalId,
     updatedBlock: blockNumber,
   });
@@ -614,14 +609,9 @@ async function upsertUserLawyerVote(
 ): Promise<void> {
   const id = `${proposalId}-${voter}`;
 
-  let listingIdNumber: number | undefined;
-  if (listingId != null) {
-    listingIdNumber = Number(listingId);
-  }
-
   const row = MarketplaceUserLawyerVotes.create({
     id,
-    listingId: listingIdNumber,
+    listingId,
     proposalId,
     voter,
     updatedBlock: blockNumber,
@@ -644,9 +634,9 @@ async function upsertShareOwner(
 
     const row = MarketplaceShareOwners.create({
       id,
-      listingId: Number(listingId),
+      listingId: listingId,
       ongoingObjectListingId: listingId.toString(),
-      account,
+      account: account,
       shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
       paidFunds: getField(record, "paid_funds", "paidFunds") != null
         ? String(getField(record, "paid_funds", "paidFunds"))
@@ -691,14 +681,14 @@ async function upsertOngoingOffer(
 
     const row = MarketplaceOngoingOffers.create({
       id,
-      listingId: Number(listingId),
+      listingId: listingId,
       ongoingObjectListingId: listingId.toString(),
       offeror,
       sharePrice: getField(record, "share_price", "sharePrice") != null
         ? String(getField(record, "share_price", "sharePrice"))
         : undefined,
-      amount: getNumber(record.amount),
-      paymentAssets: getNumber(
+      amount: getBigInt(record.amount),
+      paymentAssets: getBigInt(
         getField(record, "payment_assets", "paymentAssets"),
       ),
       paymentAssetId: realWorldAssetId,

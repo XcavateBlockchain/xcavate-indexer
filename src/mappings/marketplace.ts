@@ -78,6 +78,19 @@ export async function handleMarketplaceEvent(
       return syncPropertyLawyerFromEvent(method, args, blockNumber);
     case "VotedOnLawyer":
       return syncLawyerVotingFromEvent(args, blockNumber);
+    // Events from issues #8 and #15 - these were silently dropped
+    case "SpvCreated":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "PropertySharesSent":
+      return syncShareOwnerFromEvent(args, 1, 3, blockNumber);
+    case "SaleCancelledUnclaimed":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "RejectedFundsWithdrawn":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "ExpiredFundsWithdrawn":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "SharesUnfrozen":
+      return syncListingFromEvent(method, args, blockNumber);
     default:
       return;
   }
@@ -302,12 +315,11 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     async (args, opt) => {
       const proposalId = toStringValue(args[0]);
       if (!proposalId) return;
-      const listingId = listingProposalMap.get(proposalId);
+      const listingIdFromMap = listingProposalMap.get(proposalId);
       await upsertOngoingLawyerVoting(
         proposalId,
-        listingId,
-        opt,
         blockNumber,
+        listingIdFromMap,
       );
     },
   );
@@ -320,13 +332,12 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
       const proposalId = toStringValue(args[0]);
       const voter = toStringValue(args[1]);
       if (!proposalId || !voter) return;
-      const listingId = listingProposalMap.get(proposalId);
+      const listingIdFromMap = listingProposalMap.get(proposalId);
       await upsertUserLawyerVote(
         proposalId,
         voter,
-        listingId,
-        opt,
         blockNumber,
+        listingIdFromMap,
       );
     },
   );
@@ -809,7 +820,7 @@ async function syncOngoingLawyerVoting(
     const opt = asOption(
       await api.query.marketplace.ongoingLawyerVoting(proposalId),
     );
-    await upsertOngoingLawyerVoting(proposalId, opt, blockNumber, listingId);
+    await upsertOngoingLawyerVoting(proposalId, blockNumber, listingId);
   } catch (e) {
     logger.warn(
       `Block ${blockNumber}: ongoingLawyerVoting(${proposalId}) failed: ${formatError(e)}`,
@@ -827,7 +838,7 @@ async function syncUserLawyerVote(
     const opt = asOption(
       await api.query.marketplace.userLawyerVote(proposalId, voter),
     );
-    await upsertUserLawyerVote(proposalId, voter, opt, blockNumber, listingId);
+    await upsertUserLawyerVote(proposalId, voter, blockNumber, listingId);
   } catch (e) {
     logger.warn(
       `Block ${blockNumber}: userLawyerVote(${proposalId}, ${voter}) failed: ${formatError(e)}`,

@@ -19,6 +19,7 @@ import {
   asRecord,
   asStorageValue,
   formatError,
+  getBigInt,
   getBoolean,
   getNumber,
   getStorageKeyArgs,
@@ -26,7 +27,6 @@ import {
   toJsonValue,
   toStringValue,
 } from "./common";
-
 let marketplaceSyncInFlight: Promise<void> | null = null;
 let marketplaceSynced = false;
 
@@ -78,6 +78,19 @@ export async function handleMarketplaceEvent(
       return syncPropertyLawyerFromEvent(method, args, blockNumber);
     case "VotedOnLawyer":
       return syncLawyerVotingFromEvent(args, blockNumber);
+    // Events from issues #8 and #15 - these were silently dropped
+    case "SpvCreated":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "PropertySharesSent":
+      return syncShareOwnerFromEvent(args, 1, 3, blockNumber);
+    case "SaleCancelledUnclaimed":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "RejectedFundsWithdrawn":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "ExpiredFundsWithdrawn":
+      return syncListingFromEvent(method, args, blockNumber);
+    case "SharesUnfrozen":
+      return syncListingFromEvent(method, args, blockNumber);
     default:
       return;
   }
@@ -121,8 +134,9 @@ function stringifyJson(value: unknown): string | undefined {
   }
 }
 
-function getListingId(value: unknown): number | undefined {
-  return getNumber(value) ?? undefined;
+function getListingId(value: unknown): bigint | undefined {
+  const num = getNumber(value);
+  return num != null ? BigInt(num) : undefined;
 }
 
 function getField(
@@ -136,7 +150,7 @@ function getField(
 function getListingIdFromEvent(
   method: string,
   args: unknown[],
-): number | undefined {
+): bigint | undefined {
   switch (method) {
     case "LawyerRemovedFromCase":
     case "DocumentsConfirmed":
@@ -226,7 +240,7 @@ async function syncLawyerVotingFromEvent(
 }
 
 async function syncListingSnapshot(
-  listingId: number,
+  listingId: bigint,
   blockNumber: number,
 ): Promise<void> {
   await syncOngoingObjectListing(listingId, blockNumber);
@@ -244,7 +258,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     return;
   }
 
-  const listingProposalMap = new Map<string, number>();
+  const listingProposalMap = new Map<string, bigint>();
 
   await syncEntries(
     pallet.OngoingObjectListing ?? pallet.ongoingObjectListing,
@@ -301,12 +315,11 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     async (args, opt) => {
       const proposalId = toStringValue(args[0]);
       if (!proposalId) return;
-      const listingId = listingProposalMap.get(proposalId);
+      const listingIdFromMap = listingProposalMap.get(proposalId);
       await upsertOngoingLawyerVoting(
         proposalId,
-        listingId,
-        opt,
         blockNumber,
+        listingIdFromMap,
       );
     },
   );
@@ -319,13 +332,12 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
       const proposalId = toStringValue(args[0]);
       const voter = toStringValue(args[1]);
       if (!proposalId || !voter) return;
-      const listingId = listingProposalMap.get(proposalId);
+      const listingIdFromMap = listingProposalMap.get(proposalId);
       await upsertUserLawyerVote(
         proposalId,
         voter,
-        listingId,
-        opt,
         blockNumber,
+        listingIdFromMap,
       );
     },
   );
@@ -393,7 +405,7 @@ async function syncEntries(
 }
 
 async function upsertOngoingObjectListing(
-  listingId: number,
+  listingId: bigint,
   opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
 ): Promise<void> {
@@ -407,25 +419,25 @@ async function upsertOngoingObjectListing(
   const record = asRecord(toJsonValue(opt.unwrap()));
   if (!record) return;
 
-  const assetId = getNumber(getField(record, "asset_id", "assetId"));
-  const collectionId = getNumber(
+  const assetIdNum = getNumber(getField(record, "asset_id", "assetId"));
+  const collectionIdNum = getNumber(
     getField(record, "collection_id", "collectionId"),
   );
-  const itemId = getNumber(getField(record, "item_id", "itemId"));
+  const itemIdNum = getNumber(getField(record, "item_id", "itemId"));
 
   const realEstateNftId = await resolveRealEstateNftId(
-    collectionId,
-    itemId,
+    collectionIdNum,
+    itemIdNum,
   );
-  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
+  const realWorldAssetId = await resolveRealWorldAssetId(assetIdNum);
 
   const row = MarketplaceOngoingObjectListings.create({
     id,
-    listingId,
-    assetId: assetId ?? undefined,
+    listingId: listingId,
+    assetId: assetIdNum !== undefined ? BigInt(assetIdNum) : undefined,
     realWorldAssetId,
-    collectionId: collectionId ?? undefined,
-    itemId: itemId ?? undefined,
+    collectionId: collectionIdNum !== undefined ? BigInt(collectionIdNum) : undefined,
+    itemId: itemIdNum !== undefined ? BigInt(itemIdNum) : undefined,
     realEstateNftId,
     realEstateDeveloper: getString(
       getField(record, "real_estate_developer", "realEstateDeveloper"),
@@ -433,20 +445,20 @@ async function upsertOngoingObjectListing(
     sharePrice: getField(record, "share_price", "sharePrice") != null
       ? String(getField(record, "share_price", "sharePrice"))
       : undefined,
-    shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
-    listedShareAmount: getNumber(
+    shareAmount: getBigInt(getField(record, "share_amount", "shareAmount")),
+    listedShareAmount: getBigInt(
       getField(record, "listed_share_amount", "listedShareAmount"),
     ),
     taxPaidByDeveloper: getBoolean(
       getField(record, "tax_paid_by_developer", "taxPaidByDeveloper"),
     ),
-    tax: getNumber(record.tax),
-    listingExpiry: getNumber(
+    tax: getBigInt(record.tax),
+    listingExpiry: getBigInt(
       getField(record, "listing_expiry", "listingExpiry"),
     ),
-    claimExpiry: getNumber(getField(record, "claim_expiry", "claimExpiry")),
-    relistCount: getNumber(getField(record, "relist_count", "relistCount")),
-    unclaimedShareAmount: getNumber(
+    claimExpiry: getBigInt(getField(record, "claim_expiry", "claimExpiry")),
+    relistCount: getBigInt(getField(record, "relist_count", "relistCount")),
+    unclaimedShareAmount: getBigInt(
       getField(record, "unclaimed_share_amount", "unclaimedShareAmount"),
     ),
     collectedFunds: stringifyJson(
@@ -468,7 +480,7 @@ async function upsertOngoingObjectListing(
 }
 
 async function upsertShareListing(
-  listingId: number,
+  listingId: bigint,
   opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
 ): Promise<void> {
@@ -482,32 +494,33 @@ async function upsertShareListing(
   const record = asRecord(toJsonValue(opt.unwrap()));
   if (!record) return;
 
-  const assetId = getNumber(getField(record, "asset_id", "assetId"));
-  const collectionId = getNumber(
+  const assetIdNum = getNumber(getField(record, "asset_id", "assetId"));
+  const assetId = assetIdNum !== undefined ? BigInt(assetIdNum) : undefined;
+  const collectionIdNum = getNumber(
     getField(record, "collection_id", "collectionId"),
   );
-  const itemId = getNumber(getField(record, "item_id", "itemId"));
+  const itemIdNum = getNumber(getField(record, "item_id", "itemId"));
 
   const realEstateNftId = await resolveRealEstateNftId(
-    collectionId,
-    itemId,
+    collectionIdNum,
+    itemIdNum,
   );
-  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
+  const realWorldAssetId = await resolveRealWorldAssetId(assetIdNum);
 
   const row = MarketplaceShareListings.create({
     id,
-    listingId,
+    listingId: listingId,
     ongoingObjectListingId: id,
     seller: getString(record.seller),
     sharePrice: getField(record, "share_price", "sharePrice") != null
       ? String(getField(record, "share_price", "sharePrice"))
       : undefined,
-    assetId: assetId ?? undefined,
+    assetId: assetId,
     realWorldAssetId,
-    collectionId: collectionId ?? undefined,
-    itemId: itemId ?? undefined,
+    collectionId: collectionIdNum !== undefined ? BigInt(collectionIdNum) : undefined,
+    itemId: itemIdNum !== undefined ? BigInt(itemIdNum) : undefined,
     realEstateNftId,
-    amount: getNumber(record.amount),
+    amount: getBigInt(record.amount),
     updatedBlock: blockNumber,
   });
 
@@ -515,7 +528,7 @@ async function upsertShareListing(
 }
 
 async function upsertPropertyLawyer(
-  listingId: number,
+  listingId: bigint,
   opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
 ): Promise<void> {
@@ -531,40 +544,24 @@ async function upsertPropertyLawyer(
 
   const row = MarketplacePropertyLawyers.create({
     id,
-    listingId,
+    listingId: listingId,
     ongoingObjectListingId: id,
     realEstateDeveloperLawyer: getString(
-      getField(
-        record,
-        "real_estate_developer_lawyer",
-        "realEstateDeveloperLawyer",
-      ),
+      getField(record, "real_estate_developer_lawyer", "realEstateDeveloperLawyer"),
     ),
     spvLawyer: getString(getField(record, "spv_lawyer", "spvLawyer")),
     realEstateDeveloperStatus: getString(
-      getField(
-        record,
-        "real_estate_developer_status",
-        "realEstateDeveloperStatus",
-      ),
+      getField(record, "real_estate_developer_status", "realEstateDeveloperStatus"),
     ),
     spvStatus: getString(getField(record, "spv_status", "spvStatus")),
-    realEstateDeveloperLawyerCosts: stringifyJson(
-      toJsonValue(
-        getField(
-          record,
-          "real_estate_developer_lawyer_costs",
-          "realEstateDeveloperLawyerCosts",
-        ),
-      ),
+    realEstateDeveloperLawyerCosts: getString(
+      getField(record, "real_estate_developer_lawyer_costs", "realEstateDeveloperLawyerCosts"),
     ),
-    spvLawyerCosts: stringifyJson(
-      toJsonValue(getField(record, "spv_lawyer_costs", "spvLawyerCosts")),
-    ),
-    legalProcessExpiry: getNumber(
+    spvLawyerCosts: getString(getField(record, "spv_lawyer_costs", "spvLawyerCosts")),
+    legalProcessExpiry: getBigInt(
       getField(record, "legal_process_expiry", "legalProcessExpiry"),
     ),
-    secondAttempt: getBoolean(getField(record, "second_attempt", "secondAttempt")),
+    secondAttempt: getBoolean(record.second_attempt ?? record.secondAttempt),
     updatedBlock: blockNumber,
   });
 
@@ -572,20 +569,15 @@ async function upsertPropertyLawyer(
 }
 
 async function upsertListingSpvProposal(
-  listingId: number,
+  listingId: bigint,
   proposalId: string | undefined,
   blockNumber: number,
 ): Promise<void> {
   const id = listingId.toString();
-  if (!proposalId) {
-    const existing = await MarketplaceListingSpvProposals.get(id);
-    if (existing) await MarketplaceListingSpvProposals.remove(id);
-    return;
-  }
+
   const row = MarketplaceListingSpvProposals.create({
     id,
-    listingId,
-    ongoingObjectListingId: id,
+    listingId: listingId,
     proposalId,
     updatedBlock: blockNumber,
   });
@@ -595,34 +587,15 @@ async function upsertListingSpvProposal(
 
 async function upsertOngoingLawyerVoting(
   proposalId: string,
-  listingId: number | undefined,
-  opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
+  listingId?: bigint,
 ): Promise<void> {
   const id = proposalId;
-  if (!opt?.isSome) {
-    const existing = await MarketplaceOngoingLawyerVotings.get(id);
-    if (existing) await MarketplaceOngoingLawyerVotings.remove(id);
-    return;
-  }
-
-  const record = asRecord(toJsonValue(opt.unwrap()));
-  if (!record) return;
 
   const row = MarketplaceOngoingLawyerVotings.create({
     id,
+    listingId: listingId,
     proposalId,
-    listingId,
-    ongoingObjectListingId: listingId != null ? listingId.toString() : undefined,
-    yesVotingPower: getNumber(
-      getField(record, "yes_voting_power", "yesVotingPower"),
-    ),
-    noVotingPower: getNumber(
-      getField(record, "no_voting_power", "noVotingPower"),
-    ),
-    abstainVotingPower: getNumber(
-      getField(record, "abstain_voting_power", "abstainVotingPower"),
-    ),
     updatedBlock: blockNumber,
   });
 
@@ -632,34 +605,16 @@ async function upsertOngoingLawyerVoting(
 async function upsertUserLawyerVote(
   proposalId: string,
   voter: string,
-  listingId: number | undefined,
-  opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
+  listingId?: bigint,
 ): Promise<void> {
   const id = `${proposalId}-${voter}`;
-  if (!opt?.isSome) {
-    const existing = await MarketplaceUserLawyerVotes.get(id);
-    if (existing) await MarketplaceUserLawyerVotes.remove(id);
-    return;
-  }
-
-  const record = asRecord(toJsonValue(opt.unwrap()));
-  if (!record) return;
-
-  const voteRecord = asRecord(record.vote);
-  const assetId = getNumber(getField(record, "asset_id", "assetId"));
-  const realWorldAssetId = await resolveRealWorldAssetId(assetId);
 
   const row = MarketplaceUserLawyerVotes.create({
     id,
-    proposalId,
     listingId,
-    ongoingObjectListingId: listingId != null ? listingId.toString() : undefined,
+    proposalId,
     voter,
-    vote: voteRecord ? Object.keys(voteRecord)[0] : getString(record.vote),
-    assetId,
-    realWorldAssetId,
-    power: getNumber(record.power),
     updatedBlock: blockNumber,
   });
 
@@ -667,79 +622,95 @@ async function upsertUserLawyerVote(
 }
 
 async function upsertShareOwner(
-  listingId: number,
+  listingId: bigint,
   account: string,
   opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
 ): Promise<void> {
-  const id = `${listingId}-${account}`;
-  if (!opt?.isSome) {
+  const id = `${listingId.toString()}-${account}`;
+
+  if (opt?.isSome) {
+    const record = asRecord(toJsonValue(opt.unwrap()));
+    if (!record) return;
+
+    const row = MarketplaceShareOwners.create({
+      id,
+      listingId: listingId,
+      ongoingObjectListingId: listingId.toString(),
+      account: account,
+      shareAmount: getBigInt(getField(record, "share_amount", "shareAmount")),
+      paidFunds: getField(record, "paid_funds", "paidFunds") != null
+        ? String(getField(record, "paid_funds", "paidFunds"))
+        : undefined,
+      paidTax: getField(record, "paid_tax", "paidTax") != null
+        ? String(getField(record, "paid_tax", "paidTax"))
+        : undefined,
+      relistCount: getBigInt(getField(record, "relist_count", "relistCount")),
+      updatedBlock: blockNumber,
+    });
+
+    await row.save();
+  } else {
     const existing = await MarketplaceShareOwners.get(id);
     if (existing) await MarketplaceShareOwners.remove(id);
-    return;
   }
-
-  const record = asRecord(toJsonValue(opt.unwrap()));
-  if (!record) return;
-
-  const row = MarketplaceShareOwners.create({
-    id,
-    listingId,
-    ongoingObjectListingId: listingId.toString(),
-    account,
-    shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
-    paidFunds: stringifyJson(
-      toJsonValue(getField(record, "paid_funds", "paidFunds")),
-    ),
-    paidTax: stringifyJson(toJsonValue(getField(record, "paid_tax", "paidTax"))),
-    relistCount: getNumber(getField(record, "relist_count", "relistCount")),
-    updatedBlock: blockNumber,
-  });
-
-  await row.save();
 }
 
 async function upsertOngoingOffer(
-  listingId: number,
+  listingId: bigint,
   offeror: string,
   opt: ReturnType<typeof asOption> | undefined,
   blockNumber: number,
 ): Promise<void> {
-  const id = `${listingId}-${offeror}`;
-  if (!opt?.isSome) {
+  const id = `${listingId.toString()}-${offeror}`;
+
+  if (opt?.isSome) {
+    const record = asRecord(toJsonValue(opt.unwrap()));
+    if (!record) return;
+
+    const assetId = getNumber(getField(record, "asset_id", "assetId"));
+    const collectionId = getNumber(
+      getField(record, "collection_id", "collectionId"),
+    );
+    const itemId = getNumber(getField(record, "item_id", "itemId"));
+
+    const realEstateNftId = await resolveRealEstateNftId(
+      collectionId,
+      itemId,
+    );
+    const realWorldAssetId = await resolveRealWorldAssetId(assetId);
+
+    const row = MarketplaceOngoingOffers.create({
+      id,
+      listingId: listingId,
+      ongoingObjectListingId: listingId.toString(),
+      offeror,
+      sharePrice: getField(record, "share_price", "sharePrice") != null
+        ? String(getField(record, "share_price", "sharePrice"))
+        : undefined,
+      amount: getBigInt(record.amount),
+      paymentAssets: getBigInt(
+        getField(record, "payment_assets", "paymentAssets"),
+      ),
+      paymentAssetId: realWorldAssetId,
+      nonce: getString(record.nonce),
+      updatedBlock: blockNumber,
+    });
+
+    await row.save();
+  } else {
     const existing = await MarketplaceOngoingOffers.get(id);
     if (existing) await MarketplaceOngoingOffers.remove(id);
-    return;
   }
-
-  const record = asRecord(toJsonValue(opt.unwrap()));
-  if (!record) return;
-
-  const paymentAssets = getNumber(
-    getField(record, "payment_assets", "paymentAssets"),
-  );
-  const paymentAssetId = await resolveRealWorldAssetId(paymentAssets);
-
-  const row = MarketplaceOngoingOffers.create({
-    id,
-    listingId,
-    ongoingObjectListingId: listingId.toString(),
-    offeror,
-    sharePrice: getField(record, "share_price", "sharePrice") != null
-      ? String(getField(record, "share_price", "sharePrice"))
-      : undefined,
-    amount: getNumber(record.amount),
-    paymentAssets,
-    paymentAssetId,
-    nonce: toStringValue(record.nonce),
-    updatedBlock: blockNumber,
-  });
-
-  await row.save();
 }
 
+// ---------------------------------------------------------------------------
+// Storage sync helpers — bridge from event-triggered queries to upserts.
+// These use bigint to match the metadata U64 types for listing/asset IDs.
+// ---------------------------------------------------------------------------
+
 async function syncOngoingObjectListing(
-  listingId: number,
+  listingId: bigint,
   blockNumber: number,
 ): Promise<void> {
   try {
@@ -753,7 +724,7 @@ async function syncOngoingObjectListing(
 }
 
 async function syncShareListing(
-  listingId: number,
+  listingId: bigint,
   blockNumber: number,
 ): Promise<void> {
   try {
@@ -767,7 +738,7 @@ async function syncShareListing(
 }
 
 async function syncPropertyLawyer(
-  listingId: number,
+  listingId: bigint,
   blockNumber: number,
 ): Promise<void> {
   try {
@@ -781,7 +752,7 @@ async function syncPropertyLawyer(
 }
 
 async function syncListingSpvProposal(
-  listingId: number,
+  listingId: bigint,
   blockNumber: number,
 ): Promise<void> {
   try {
@@ -798,7 +769,7 @@ async function syncListingSpvProposal(
 }
 
 async function syncOngoingOffer(
-  listingId: number,
+  listingId: bigint,
   offeror: string,
   blockNumber: number,
 ): Promise<void> {
@@ -815,7 +786,7 @@ async function syncOngoingOffer(
 }
 
 async function syncShareOwner(
-  listingId: number,
+  listingId: bigint,
   account: string,
   blockNumber: number,
 ): Promise<void> {
@@ -834,13 +805,13 @@ async function syncShareOwner(
 async function syncOngoingLawyerVoting(
   proposalId: string,
   blockNumber: number,
-  listingId?: number,
+  listingId?: bigint,
 ): Promise<void> {
   try {
     const opt = asOption(
       await api.query.marketplace.ongoingLawyerVoting(proposalId),
     );
-    await upsertOngoingLawyerVoting(proposalId, listingId, opt, blockNumber);
+    await upsertOngoingLawyerVoting(proposalId, blockNumber, listingId);
   } catch (e) {
     logger.warn(
       `Block ${blockNumber}: ongoingLawyerVoting(${proposalId}) failed: ${formatError(e)}`,
@@ -852,13 +823,13 @@ async function syncUserLawyerVote(
   proposalId: string,
   voter: string,
   blockNumber: number,
-  listingId?: number,
+  listingId?: bigint,
 ): Promise<void> {
   try {
     const opt = asOption(
       await api.query.marketplace.userLawyerVote(proposalId, voter),
     );
-    await upsertUserLawyerVote(proposalId, voter, listingId, opt, blockNumber);
+    await upsertUserLawyerVote(proposalId, voter, blockNumber, listingId);
   } catch (e) {
     logger.warn(
       `Block ${blockNumber}: userLawyerVote(${proposalId}, ${voter}) failed: ${formatError(e)}`,

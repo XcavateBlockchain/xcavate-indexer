@@ -45,6 +45,21 @@ export function getNumber(value: unknown): number | undefined {
   return toNumber(value);
 }
 
+export function getBigInt(value: unknown): bigint | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") return BigInt(value);
+  if (typeof value === "string") {
+    try { return BigInt(value); } catch { return undefined; }
+  }
+  const json = toJsonValue(value);
+  if (typeof json === "bigint") return json;
+  if (typeof json === "string") {
+    try { return BigInt(json); } catch { return undefined; }
+  }
+  return undefined;
+}
+
 export function asRecord(value: unknown): RecordLike | undefined {
   return isRecord(value) ? value : undefined;
 }

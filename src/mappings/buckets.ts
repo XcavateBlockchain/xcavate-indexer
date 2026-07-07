@@ -137,9 +137,9 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     "buckets.namespaces",
     blockNumber,
     async (args, value) => {
-      const namespaceId = toNumber(args[0]);
+      const namespaceId = BigInt(String(args[0]));
       if (namespaceId == null) return;
-      await upsertNamespaceFromStorage(namespaceId, value, blockNumber);
+      await upsertNamespaceFromStorage(Number(namespaceId), value, blockNumber);
     },
   );
 
@@ -149,8 +149,8 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     "buckets.buckets",
     blockNumber,
     async (args, value) => {
-      const namespaceId = toNumber(args[0]);
-      const bucketId = toNumber(args[1]);
+      const namespaceId = BigInt(String(args[0]));
+      const bucketId = BigInt(String(args[1]));
       if (namespaceId == null || bucketId == null) return;
       await upsertBucketFromStorage(namespaceId, bucketId, value, blockNumber);
     },
@@ -225,10 +225,10 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     "buckets.managers",
     blockNumber,
     async (args) => {
-      const namespaceId = toNumber(args[0]);
+      const namespaceId = BigInt(String(args[0]));
       const subjectRaw = args[1];
       if (namespaceId == null || subjectRaw == null) return;
-      await upsertNamespaceManager(namespaceId, subjectRaw, blockNumber);
+      await upsertNamespaceManager(Number(namespaceId), subjectRaw, blockNumber);
     },
   );
 
@@ -238,9 +238,9 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     "buckets.messages",
     blockNumber,
     async (args, value) => {
-      const namespaceId = toNumber(args[0]);
-      const bucketId = toNumber(args[1]);
-      const messageId = toNumber(args[2]);
+      const namespaceId = BigInt(String(args[0]));
+      const bucketId = BigInt(String(args[1]));
+      const messageId = BigInt(String(args[2]));
       if (namespaceId == null || bucketId == null || messageId == null) return;
       await upsertMessageFromStorage(namespaceId, bucketId, messageId, value, blockNumber);
     },
@@ -252,7 +252,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     "buckets.tags",
     blockNumber,
     async (args) => {
-      const bucketId = toNumber(args[0]);
+      const bucketId = BigInt(String(args[0]));
       const tagRaw = args[1];
       if (bucketId == null || tagRaw == null) return;
       await upsertTagFromStorage(bucketId, tagRaw, blockNumber);
@@ -265,7 +265,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     "buckets.tagMessages",
     blockNumber,
     async (args, value) => {
-      const bucketId = toNumber(args[0]);
+      const bucketId = BigInt(String(args[0]));
       const tagRaw = args[1];
       const count = toNumber(value);
       if (bucketId == null || tagRaw == null || count == null) return;
@@ -323,16 +323,16 @@ async function getBucketMembershipStorageKey(
   storageName: string,
   blockNumber: number,
 ): Promise<{
-  namespaceId: number;
-  bucketId: number;
+  namespaceId: bigint;
+  bucketId: bigint;
   memberRaw: unknown;
 } | undefined> {
   const keyArgs = args.length === 1 && Array.isArray(args[0])
     ? args[0]
     : args;
 
-  const namespaceIdFromKey = keyArgs.length >= 3 ? toNumber(keyArgs[0]) : undefined;
-  const bucketId = keyArgs.length >= 3 ? toNumber(keyArgs[1]) : toNumber(keyArgs[0]);
+  const namespaceIdFromKey = keyArgs.length >= 3 ? BigInt(String(keyArgs[0])) : undefined;
+  const bucketId = keyArgs.length >= 3 ? BigInt(String(keyArgs[1])) : BigInt(String(keyArgs[0]));
   const memberRaw = keyArgs.length >= 3 ? keyArgs[2] : keyArgs[1];
 
   if (bucketId == null || memberRaw == null) {
@@ -354,7 +354,7 @@ async function getBucketMembershipStorageKey(
     return undefined;
   }
 
-  return { namespaceId: bucket.namespaceId, bucketId, memberRaw };
+  return { namespaceId: bucket.namespaceId as bigint, bucketId, memberRaw };
 }
 
 // ---------------------------------------------------------------------------
@@ -384,7 +384,7 @@ async function upsertNamespaceFromStorage(
 
   const ns = Namespace.create({
     id: namespaceId.toString(),
-    namespaceId,
+    namespaceId: Number(namespaceId),
     name,
     schemaUri,
     properties: propertiesStr,
@@ -429,7 +429,7 @@ async function ensureNamespace(
   namespaceId: number,
   blockNumber: number,
 ): Promise<void> {
-  const existing = await Namespace.get(namespaceId.toString());
+  const existing = await Namespace.get(String(namespaceId));
   if (existing) return;
 
   logger.warn(
@@ -437,7 +437,7 @@ async function ensureNamespace(
   );
 
   try {
-    const stored = await api.query.buckets.namespaces(namespaceId);
+    const stored = await api.query.buckets.namespaces(BigInt(namespaceId));
     const storedOpt = asOption(stored);
     if (!storedOpt?.isSome) {
       logger.warn(
@@ -463,8 +463,8 @@ async function ensureNamespace(
 // (e.g. created before startBlock). Without this, FK inserts on Message /
 // BucketContributor / BucketAdmin crash the worker.
 async function ensureBucket(
-  namespaceId: number,
-  bucketId: number,
+  namespaceId: bigint,
+  bucketId: bigint,
   blockNumber: number,
 ): Promise<void> {
   const existing = await Bucket.get(bucketId.toString());
@@ -529,8 +529,8 @@ async function ensureBucket(
 }
 
 async function upsertBucketFromStorage(
-  namespaceId: number,
-  bucketId: number,
+  namespaceId: bigint,
+  bucketId: bigint,
   storedValue: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -568,8 +568,8 @@ async function upsertBucketFromStorage(
 }
 
 async function upsertBucketContributor(
-  namespaceId: number,
-  bucketId: number,
+  namespaceId: bigint,
+  bucketId: bigint,
   subjectRaw: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -588,6 +588,7 @@ async function upsertBucketContributor(
   const row = BucketContributor.create({
     id,
     bucketId: bucketId.toString(),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: existing?.addedBlock ?? blockNumber,
   });
@@ -595,8 +596,8 @@ async function upsertBucketContributor(
 }
 
 async function upsertBucketViewer(
-  namespaceId: number,
-  bucketId: number,
+  namespaceId: bigint,
+  bucketId: bigint,
   viewerRaw: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -615,6 +616,7 @@ async function upsertBucketViewer(
   const row = BucketViewer.create({
     id,
     bucketId: bucketId.toString(),
+    bucketIdNumber: bucketId,
     viewerId,
     addedBlock: existing?.addedBlock ?? blockNumber,
   });
@@ -622,8 +624,8 @@ async function upsertBucketViewer(
 }
 
 async function upsertBucketAdmin(
-  namespaceId: number,
-  bucketId: number,
+  namespaceId: bigint,
+  bucketId: bigint,
   subjectRaw: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -642,6 +644,7 @@ async function upsertBucketAdmin(
   const row = BucketAdmin.create({
     id,
     bucketId: bucketId.toString(),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: existing?.addedBlock ?? blockNumber,
   });
@@ -653,9 +656,9 @@ async function upsertBucketAdmin(
 // ---------------------------------------------------------------------------
 
 async function upsertMessageFromStorage(
-  namespaceId: number,
-  bucketId: number,
-  messageId: number,
+  namespaceId: bigint,
+  bucketId: bigint,
+  messageId: bigint,
   storedValue: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -692,6 +695,7 @@ async function upsertMessageFromStorage(
     id,
     bucketId: bucketId.toString(),
     messageId,
+    messageIdNumber: messageId,
     contributor: existing?.contributor ?? "unknown",
     reference,
     tag,
@@ -711,14 +715,14 @@ async function upsertMessageFromStorage(
 
 // Upserts a Tag row from storage.
 async function upsertTagFromStorage(
-  bucketId: number,
+  bucketId: bigint,
   tagRaw: unknown,
   blockNumber: number,
 ): Promise<void> {
   const tagStr = toUtf8String(tagRaw);
   if (!tagStr) return;
 
-  await ensureBucket(0, bucketId, blockNumber);
+  await ensureBucket(BigInt(0), bucketId, blockNumber);
   const bucket = await Bucket.get(bucketId.toString());
   if (!bucket) return;
 
@@ -738,7 +742,7 @@ async function upsertTagFromStorage(
 
 // Upserts / updates a TagMessageCount row (synced from TagMessages storage).
 async function upsertTagMessageCount(
-  bucketId: number,
+  bucketId: bigint,
   tagRaw: unknown,
   count: number,
   blockNumber: number,
@@ -816,7 +820,7 @@ async function handleNamespaceCreated(
 
   const ns = Namespace.create({
     id: namespaceId.toString(),
-    namespaceId,
+    namespaceId: Number(namespaceId),
     name,
     schemaUri,
     properties: propertiesStr ?? existing?.properties,
@@ -913,8 +917,8 @@ async function handleBucketCreated(
 ): Promise<void> {
   // Event fields per metadata: namespace_id, bucket_id, BucketDetails (struct), creator (Option<SubjectId>)
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
 
   let name: string | undefined;
   let category: string | undefined;
@@ -995,8 +999,8 @@ async function handlePausedBucket(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
 
   logger.info(
     `Block ${blockNumber}: PausedBucket — namespace=${namespaceId}, bucket=${bucketId}`,
@@ -1024,8 +1028,8 @@ async function handleBucketWritableWithKey(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
   const keyArg = args[2];
   const encryptionKey = toHexString(keyArg);
 
@@ -1068,8 +1072,8 @@ async function handleContributorAdded(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
   const subjectRaw = args[2];
   const subjectId = (await toSs58(subjectRaw, 0)) ?? String(subjectRaw);
   const id = `${bucketId}-${subjectId}`;
@@ -1079,6 +1083,7 @@ async function handleContributorAdded(
   const row = BucketContributor.create({
     id,
     bucketId: bucketId.toString(),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: blockNumber,
   });
@@ -1094,7 +1099,8 @@ async function handleContributorRemoved(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
   const subjectRaw = args[2];
   const subjectId = (await toSs58(subjectRaw, 0)) ?? String(subjectRaw);
   const id = `${bucketId}-${subjectId}`;
@@ -1123,8 +1129,8 @@ async function handleViewerAdded(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
   const viewerRaw = args[2];
   const viewerId = toHexString(viewerRaw) ?? toUtf8String(viewerRaw) ?? String(viewerRaw);
   const id = `${bucketId}-${viewerId}`;
@@ -1134,6 +1140,7 @@ async function handleViewerAdded(
   const row = BucketViewer.create({
     id,
     bucketId: bucketId.toString(),
+    bucketIdNumber: bucketId,
     viewerId,
     addedBlock: blockNumber,
   });
@@ -1149,7 +1156,7 @@ async function handleViewerRemoved(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const bucketId = Number(String(args[1]));
+  const bucketId = BigInt(String(args[1]));
   const viewerRaw = args[2];
   const viewerId = toHexString(viewerRaw) ?? toUtf8String(viewerRaw) ?? String(viewerRaw);
   const id = `${bucketId}-${viewerId}`;
@@ -1178,8 +1185,8 @@ async function handleAdminAdded(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
   const subjectRaw = args[2];
   const subjectId = (await toSs58(subjectRaw, 0)) ?? String(subjectRaw);
   const id = `${bucketId}-${subjectId}`;
@@ -1189,6 +1196,7 @@ async function handleAdminAdded(
   const row = BucketAdmin.create({
     id,
     bucketId: bucketId.toString(),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: blockNumber,
   });
@@ -1204,7 +1212,7 @@ async function handleAdminRemoved(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const bucketId = Number(String(args[1]));
+  const bucketId = BigInt(String(args[1]));
   const subjectRaw = args[2];
   const subjectId = (await toSs58(subjectRaw, 0)) ?? String(subjectRaw);
   const id = `${bucketId}-${subjectId}`;
@@ -1234,7 +1242,7 @@ async function handleNewTag(
 ): Promise<void> {
   // Event fields per metadata: bucket_id, tag, creator (Option<SubjectId>)
   const args = event.event.data as unknown[];
-  const bucketId = Number(String(args[0]));
+  const bucketId = BigInt(String(args[0]));
   const tagRaw = args[1];
   const tagStr = toUtf8String(tagRaw);
   if (!tagStr) return;
@@ -1268,7 +1276,7 @@ async function handleTagDeleted(
 ): Promise<void> {
   // Event fields: bucket_id, tag
   const args = event.event.data as unknown[];
-  const bucketId = Number(String(args[0]));
+  const bucketId = BigInt(String(args[0]));
   const tagRaw = args[1];
   const tagStr = toUtf8String(tagRaw);
   if (!tagStr) return;
@@ -1305,9 +1313,9 @@ async function handleNewMessage(
 ): Promise<void> {
   // Event fields per metadata: namespace_id, bucket_id, message_id, MessageDetails, contributor (SubjectId)
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
-  const messageId = Number(String(args[2]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
+  const messageId = BigInt(String(args[2]));
   const messageStruct = asRecord(args[3]);
   const contributor = (await toSs58(args[4], 0)) ?? String(args[4]);
 
@@ -1364,6 +1372,7 @@ async function handleNewMessage(
       id,
       bucketId: bucketId.toString(),
       messageId,
+      messageIdNumber: messageId,
       contributor,
       reference,
       tag,
@@ -1392,8 +1401,8 @@ async function handleMessageDeleted(
 ): Promise<void> {
   // Event fields: bucket_id, message_id
   const args = event.event.data as unknown[];
-  const bucketId = Number(String(args[0]));
-  const messageId = Number(String(args[1]));
+  const bucketId = BigInt(String(args[0]));
+  const messageId = BigInt(String(args[1]));
   const id = `${bucketId}-${messageId}`;
 
   const existing = await Message.get(id);

@@ -1,7 +1,7 @@
 type Bucket @entity {
   id: ID! #bucketId as string
-  namespaceId: Int! @index
-  bucketId: Int! @index
+  namespaceId: BigInt! @index # BigInt because metadata uses U128
+  bucketId: BigInt! @index # BigInt because metadata uses U128
   creator: String # DID of creator
   name: String # decoded from metadata
   category: String # decoded from metadata
@@ -21,6 +21,7 @@ type BucketContributor @entity {
   bucket: Bucket! # FK → bucket_id column + index + FK constraint
   subjectId: String! @index # DID of the contributor
   addedBlock: Int!
+  bucketIdNumber: BigInt! @index # BigInt to match bucket.bucketId (U128)
 }
 
 type BucketViewer @entity {
@@ -28,6 +29,7 @@ type BucketViewer @entity {
   bucket: Bucket! # FK → bucket_id column + index + FK constraint
   viewerId: String! @index # X25519 public key of the viewer, encoded as hex
   addedBlock: Int!
+  bucketIdNumber: BigInt! @index # BigInt to match bucket.bucketId (U128)
 }
 
 type BucketAdmin @entity {
@@ -35,12 +37,14 @@ type BucketAdmin @entity {
   bucket: Bucket! # FK → bucket_id column + index + FK constraint
   subjectId: String! @index # DID of the admin
   addedBlock: Int!
+  bucketIdNumber: BigInt! @index # BigInt to match bucket.bucketId (U128)
 }
 
 type Message @entity {
   id: ID! # "bucketId-messageId" (e.g. "1-5")
   bucket: Bucket! # FK
-  messageId: Int!
+  messageId: BigInt! # BigInt because metadata uses U128
+  messageIdNumber: BigInt! @index # BigInt to match bucket.bucketId (U128)
   contributor: String! # DID of the writer (from event arg)
   reference: String # decoded IPFS CID ("baf...")
   tag: String # decoded UTF-8 (e.g. "didcomm/key-sharing-v1")
@@ -111,10 +115,11 @@ type RealWorldAsset @entity {
   assetId: Int! @index
   collectionId: Int @index
   itemId: Int @index
+  namespaceId: BigInt @index # BigInt because PropertyAssetDetails.namespace_id is U128
   realEstateNft: RealEstateNft
   region: Int
   location: String
-  price: String
+  price: BigInt # BigInt because PropertyAssetDetails.price is U128
   shareAmount: Int
   spvCreated: Boolean
   finalized: Boolean
@@ -136,22 +141,22 @@ type RealWorldAssetOwner @entity {
 # Marketplace
 type MarketplaceOngoingObjectListings @entity {
   id: ID! # listingId as string
-  listingId: Int! @index
-  assetId: Int @index
+  listingId: BigInt! @index # BigInt because metadata uses U64
+  assetId: BigInt @index # BigInt because metadata uses U64
   realWorldAsset: RealWorldAsset
-  collectionId: Int @index
-  itemId: Int @index
+  collectionId: BigInt @index # BigInt because metadata uses U64
+  itemId: BigInt @index # BigInt because metadata uses U64
   realEstateNft: RealEstateNft
   realEstateDeveloper: String
   sharePrice: String
-  shareAmount: Int
-  listedShareAmount: Int
+  shareAmount: BigInt
+  listedShareAmount: BigInt
   taxPaidByDeveloper: Boolean
-  tax: Int
-  listingExpiry: Int
-  claimExpiry: Int
-  relistCount: Int
-  unclaimedShareAmount: Int
+  tax: BigInt
+  listingExpiry: BigInt
+  claimExpiry: BigInt
+  relistCount: BigInt
+  unclaimedShareAmount: BigInt
   collectedFunds: String
   collectedTax: String
   collectedFees: String
@@ -169,39 +174,39 @@ type MarketplaceOngoingObjectListings @entity {
 
 type MarketplaceShareOwners @entity {
   id: ID! # listingId-account
-  listingId: Int! @index
+  listingId: BigInt! @index # BigInt because metadata uses U64
   ongoingObjectListing: MarketplaceOngoingObjectListings!
   account: String! @index
-  shareAmount: Int
+  shareAmount: BigInt
   paidFunds: String
   paidTax: String
-  relistCount: Int
+  relistCount: BigInt
   updatedBlock: Int!
 }
 
 type MarketplaceShareListings @entity {
   id: ID!
-  listingId: Int!
+  listingId: BigInt! # BigInt because metadata uses U64
   ongoingObjectListing: MarketplaceOngoingObjectListings!
   seller: String
   sharePrice: String
-  assetId: Int @index
+  assetId: BigInt @index # BigInt because metadata uses U64
   realWorldAsset: RealWorldAsset
-  collectionId: Int @index
-  itemId: Int @index
+  collectionId: BigInt @index # BigInt because metadata uses U64
+  itemId: BigInt @index # BigInt because metadata uses U64
   realEstateNft: RealEstateNft
-  amount: Int
+  amount: BigInt
   updatedBlock: Int
 }
 
 type MarketplaceOngoingOffers @entity {
   id: ID! # listingId-offeror
-  listingId: Int! @index
+  listingId: BigInt! @index # BigInt because metadata uses U64
   ongoingObjectListing: MarketplaceOngoingObjectListings
   offeror: String! @index
   sharePrice: String
-  amount: Int
-  paymentAssets: Int
+  amount: BigInt
+  paymentAssets: BigInt
   paymentAsset: RealWorldAsset
   nonce: String
   updatedBlock: Int!
@@ -209,7 +214,7 @@ type MarketplaceOngoingOffers @entity {
 
 type MarketplaceListingSpvProposals @entity {
   id: ID! # listingId as string
-  listingId: Int! @index
+  listingId: BigInt! @index # BigInt because metadata uses U64
   ongoingObjectListing: MarketplaceOngoingObjectListings
   proposalId: String
   updatedBlock: Int!
@@ -218,30 +223,30 @@ type MarketplaceListingSpvProposals @entity {
 type MarketplaceOngoingLawyerVotings @entity {
   id: ID! # proposalId as string
   proposalId: String! @index
-  listingId: Int @index
+  listingId: BigInt @index # BigInt because metadata uses U64
   ongoingObjectListing: MarketplaceOngoingObjectListings
-  yesVotingPower: Int
-  noVotingPower: Int
-  abstainVotingPower: Int
+  yesVotingPower: BigInt
+  noVotingPower: BigInt
+  abstainVotingPower: BigInt
   updatedBlock: Int!
 }
 
 type MarketplaceUserLawyerVotes @entity {
   id: ID! # proposalId-voter
   proposalId: String! @index
-  listingId: Int @index
+  listingId: BigInt @index # BigInt because metadata uses U64
   ongoingObjectListing: MarketplaceOngoingObjectListings
   voter: String! @index
   vote: String
-  assetId: Int
+  assetId: BigInt
   realWorldAsset: RealWorldAsset
-  power: Int
+  power: BigInt
   updatedBlock: Int!
 }
 
 type MarketplacePropertyLawyers @entity {
   id: ID! # listingId as string
-  listingId: Int! @index
+  listingId: BigInt! @index # BigInt because metadata uses U64
   ongoingObjectListing: MarketplaceOngoingObjectListings
   realEstateDeveloperLawyer: String
   spvLawyer: String
@@ -249,7 +254,7 @@ type MarketplacePropertyLawyers @entity {
   spvStatus: String
   realEstateDeveloperLawyerCosts: String
   spvLawyerCosts: String
-  legalProcessExpiry: Int
+  legalProcessExpiry: BigInt
   secondAttempt: Boolean
   updatedBlock: Int!
 }

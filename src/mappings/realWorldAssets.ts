@@ -12,6 +12,7 @@ import {
   asRecord,
   asStorageValue,
   formatError,
+  getBigInt,
   getBoolean,
   getNumber,
   getStorageKeyArgs,
@@ -245,6 +246,7 @@ async function upsertRealWorldAsset(
 
   const collectionId = getNumber(getField(record, "collection_id", "collectionId"));
   const itemId = getNumber(getField(record, "item_id", "itemId"));
+  const namespaceId = getBigInt(record.namespace_id) ?? getBigInt(getField(record, "namespaceId", "namespace_id"));
   const realEstateNftId = await resolveRealEstateNftId(collectionId, itemId);
   const existing = await RealWorldAsset.get(id);
 
@@ -253,10 +255,11 @@ async function upsertRealWorldAsset(
     assetId,
     collectionId: collectionId ?? undefined,
     itemId: itemId ?? undefined,
+    namespaceId: namespaceId ?? undefined,
     realEstateNftId,
     region: getNumber(record.region),
     location: getLocation(record.location),
-    price: stringifyValue(record.price),
+    price: getBigInt(record.price),
     shareAmount: getNumber(getField(record, "share_amount", "shareAmount")),
     spvCreated: getBoolean(getField(record, "spv_created", "spvCreated")),
     finalized: getBoolean(record.finalized),

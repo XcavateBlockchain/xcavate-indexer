@@ -39,10 +39,14 @@
     "typescript": "latest"
   },
   "dependencies": {
-    "@polkadot/util": "^12.0.0",
-    "@polkadot/util-crypto": "^12.0.0"
+    "@polkadot/util": "^14.0.0",
+    "@polkadot/util-crypto": "^14.0.0"
   },
   "resolutions": {
-    "ipfs-unixfs": "6.0.6"
+    "ipfs-unixfs": "6.0.6",
+    "ajv": "8.20.0"
+  },
+  "overrides": {
+    "ajv": "8.20.0"
   }
 }

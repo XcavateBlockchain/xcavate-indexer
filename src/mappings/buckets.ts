@@ -363,7 +363,7 @@ async function getBucketMembershipStorageKey(
 
 // Upserts a Namespace row from storage.
 async function upsertNamespaceFromStorage(
-  namespaceId: bigint,
+  namespaceId: number,
   storedValue: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -429,7 +429,7 @@ async function ensureNamespace(
   namespaceId: number,
   blockNumber: number,
 ): Promise<void> {
-  const existing = await Namespace.get(namespaceId.toString());
+  const existing = await Namespace.get(String(namespaceId));
   if (existing) return;
 
   logger.warn(
@@ -715,7 +715,7 @@ async function upsertMessageFromStorage(
 
 // Upserts a Tag row from storage.
 async function upsertTagFromStorage(
-  bucketId: number,
+  bucketId: bigint,
   tagRaw: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -742,7 +742,7 @@ async function upsertTagFromStorage(
 
 // Upserts / updates a TagMessageCount row (synced from TagMessages storage).
 async function upsertTagMessageCount(
-  bucketId: number,
+  bucketId: bigint,
   tagRaw: unknown,
   count: number,
   blockNumber: number,
@@ -917,8 +917,8 @@ async function handleBucketCreated(
 ): Promise<void> {
   // Event fields per metadata: namespace_id, bucket_id, BucketDetails (struct), creator (Option<SubjectId>)
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
 
   let name: string | undefined;
   let category: string | undefined;

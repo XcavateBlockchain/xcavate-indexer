@@ -115,10 +115,11 @@ type RealWorldAsset @entity {
   assetId: Int! @index
   collectionId: Int @index
   itemId: Int @index
+  namespaceId: BigInt @index # BigInt because PropertyAssetDetails.namespace_id is U128
   realEstateNft: RealEstateNft
   region: Int
   location: String
-  price: String
+  price: BigInt # BigInt because PropertyAssetDetails.price is U128
   shareAmount: Int
   spvCreated: Boolean
   finalized: Boolean

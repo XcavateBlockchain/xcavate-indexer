@@ -363,7 +363,7 @@ async function getBucketMembershipStorageKey(
 
 // Upserts a Namespace row from storage.
 async function upsertNamespaceFromStorage(
-  namespaceId: number,
+  namespaceId: bigint,
   storedValue: unknown,
   blockNumber: number,
 ): Promise<void> {
@@ -384,7 +384,7 @@ async function upsertNamespaceFromStorage(
 
   const ns = Namespace.create({
     id: namespaceId.toString(),
-    namespaceId,
+    namespaceId: Number(namespaceId),
     name,
     schemaUri,
     properties: propertiesStr,
@@ -588,7 +588,7 @@ async function upsertBucketContributor(
   const row = BucketContributor.create({
     id,
     bucketId: bucketId.toString(),
-    bucketIdNumber: Number(bucketId),
+    bucketIdNumber: bucketId,
     subjectId,
     addedBlock: existing?.addedBlock ?? blockNumber,
   });
@@ -695,6 +695,7 @@ async function upsertMessageFromStorage(
     id,
     bucketId: bucketId.toString(),
     messageId,
+    messageIdNumber: messageId,
     contributor: existing?.contributor ?? "unknown",
     reference,
     tag,
@@ -721,7 +722,7 @@ async function upsertTagFromStorage(
   const tagStr = toUtf8String(tagRaw);
   if (!tagStr) return;
 
-  await ensureBucket(0, bucketId, blockNumber);
+  await ensureBucket(BigInt(0), BigInt(bucketId), blockNumber);
   const bucket = await Bucket.get(bucketId.toString());
   if (!bucket) return;
 
@@ -819,7 +820,7 @@ async function handleNamespaceCreated(
 
   const ns = Namespace.create({
     id: namespaceId.toString(),
-    namespaceId,
+    namespaceId: Number(namespaceId),
     name,
     schemaUri,
     properties: propertiesStr ?? existing?.properties,
@@ -998,8 +999,8 @@ async function handlePausedBucket(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
 
   logger.info(
     `Block ${blockNumber}: PausedBucket — namespace=${namespaceId}, bucket=${bucketId}`,
@@ -1027,8 +1028,8 @@ async function handleBucketWritableWithKey(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
   const keyArg = args[2];
   const encryptionKey = toHexString(keyArg);
 
@@ -1071,8 +1072,8 @@ async function handleContributorAdded(
   blockNumber: number,
 ): Promise<void> {
   const args = event.event.data as unknown[];
-  const namespaceId = Number(String(args[0]));
-  const bucketId = Number(String(args[1]));
+  const namespaceId = BigInt(String(args[0]));
+  const bucketId = BigInt(String(args[1]));
   const subjectRaw = args[2];
   const subjectId = (await toSs58(subjectRaw, 0)) ?? String(subjectRaw);
   const id = `${bucketId}-${subjectId}`;
@@ -1258,7 +1259,6 @@ async function handleNewTag(
   const row = Tag.create({
     id,
     bucketId: bucketId.toString(),
-    bucketIdNumber: Number(bucketId),
     tagName: tagStr,
     createdBlock: existing?.createdBlock ?? blockNumber,
     creator: existing?.creator ?? creator,

@@ -258,7 +258,7 @@ async function syncMarketplaceFromStorage(blockNumber: number): Promise<void> {
     return;
   }
 
-  const listingProposalMap = new Map<string, number>();
+  const listingProposalMap = new Map<string, bigint>();
 
   await syncEntries(
     pallet.OngoingObjectListing ?? pallet.ongoingObjectListing,

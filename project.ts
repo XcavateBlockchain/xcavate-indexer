@@ -77,6 +77,22 @@ const project: SubstrateProject = {
             handler: "handleBucketsSyncBlock",
           },
           {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handleNftFractionalizationSyncBlock",
+          },
+          {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handlePropertyManagementSyncBlock",
+          },
+          {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handlePropertyGovernanceSyncBlock",
+          },
+          {
+            kind: SubstrateHandlerKind.Block,
+            handler: "handleRealEstateAssetsSyncBlock",
+          },
+          {
             kind: SubstrateHandlerKind.Event,
             handler: "handleRealEstateNftsEvent",
             filter: {
@@ -102,6 +118,34 @@ const project: SubstrateProject = {
             handler: "handleBucketsEvent",
             filter: {
               module: "buckets",
+            },
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handleNftFractionalizationEvent",
+            filter: {
+              module: "nftFractionalization",
+            },
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handlePropertyManagementEvent",
+            filter: {
+              module: "propertyManagement",
+            },
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handlePropertyGovernanceEvent",
+            filter: {
+              module: "propertyGovernance",
+            },
+          },
+          {
+            kind: SubstrateHandlerKind.Event,
+            handler: "handleRealEstateAssetsEvent",
+            filter: {
+              module: "realEstateAssets",
             },
           },
         ],

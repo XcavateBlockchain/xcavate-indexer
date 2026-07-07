@@ -139,7 +139,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
     async (args, value) => {
       const namespaceId = BigInt(String(args[0]));
       if (namespaceId == null) return;
-      await upsertNamespaceFromStorage(namespaceId, value, blockNumber);
+      await upsertNamespaceFromStorage(Number(namespaceId), value, blockNumber);
     },
   );
 
@@ -228,7 +228,7 @@ async function syncBucketsFromStorage(blockNumber: number): Promise<void> {
       const namespaceId = BigInt(String(args[0]));
       const subjectRaw = args[1];
       if (namespaceId == null || subjectRaw == null) return;
-      await upsertNamespaceManager(namespaceId, subjectRaw, blockNumber);
+      await upsertNamespaceManager(Number(namespaceId), subjectRaw, blockNumber);
     },
   );
 
@@ -437,7 +437,7 @@ async function ensureNamespace(
   );
 
   try {
-    const stored = await api.query.buckets.namespaces(namespaceId);
+    const stored = await api.query.buckets.namespaces(BigInt(namespaceId));
     const storedOpt = asOption(stored);
     if (!storedOpt?.isSome) {
       logger.warn(
@@ -722,7 +722,7 @@ async function upsertTagFromStorage(
   const tagStr = toUtf8String(tagRaw);
   if (!tagStr) return;
 
-  await ensureBucket(BigInt(0), BigInt(bucketId), blockNumber);
+  await ensureBucket(BigInt(0), bucketId, blockNumber);
   const bucket = await Bucket.get(bucketId.toString());
   if (!bucket) return;
 

@@ -1,13 +1,8 @@
 import type { SubstrateBlock, SubstrateEvent } from "@subql/types";
 
+import { NftFractionalized, NftUnified } from "../types";
+
 import {
-  asRecord,
-  asOption,
-  asStorageValue,
-  toJsonValue,
-  toUtf8String,
-  toHexString,
-  toStringValue,
   getNumber,
   formatError,
 } from "./common";
@@ -80,9 +75,9 @@ async function handleNftFractionalized(
   if (collectionId == null || itemId == null) return;
 
   const id = `${collectionId}-${itemId}`;
-  const existing = await getNftFractionalized(id);
+  const existing = await NftFractionalized.get(id);
 
-  const row = createNftFractionalized({
+  const row = NftFractionalized.create({
     id,
     collectionId,
     itemId,
@@ -101,9 +96,9 @@ async function handleNftUnified(
   if (collectionId == null || itemId == null) return;
 
   const id = `${collectionId}-${itemId}`;
-  const existing = await getNftUnified(id);
+  const existing = await NftUnified.get(id);
 
-  const row = createNftUnified({
+  const row = NftUnified.create({
     id,
     collectionId,
     itemId,
@@ -119,25 +114,4 @@ async function syncNftFractionalizationFromStorage(
   logger.info(`Block ${blockNumber}: syncing nftFractionalization storage`);
   // Storage items would go here if there are relevant storage maps
   logger.info(`Block ${blockNumber}: nftFractionalization storage sync complete`);
-}
-
-// Type-safe getters/setters for generated types
-async function getNftFractionalized(id: string): Promise<any | undefined> {
-  // Generated type: NftFractionalized
-  return undefined;
-}
-
-async function getNftUnified(id: string): Promise<any | undefined> {
-  // Generated type: NftUnified
-  return undefined;
-}
-
-function createNftFractionalized(data: any): any {
-  // Generated type: NftFractionalized.create()
-  return undefined;
-}
-
-function createNftUnified(data: any): any {
-  // Generated type: NftUnified.create()
-  return undefined;
 }

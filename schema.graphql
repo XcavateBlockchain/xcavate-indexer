@@ -138,6 +138,21 @@ type RealWorldAssetOwner @entity {
   updatedBlock: Int!
 }
 
+# NFT fractionalization event history
+type NftFractionalized @entity {
+  id: ID! # collectionId-itemId
+  collectionId: Int! @index
+  itemId: Int! @index
+  createdBlock: Int!
+}
+
+type NftUnified @entity {
+  id: ID! # collectionId-itemId
+  collectionId: Int! @index
+  itemId: Int! @index
+  createdBlock: Int!
+}
+
 # Marketplace
 type MarketplaceOngoingObjectListings @entity {
   id: ID! # listingId as string
